@@ -4,9 +4,10 @@ version = 0.1
 
 [default]
 [default.global.parameters]
-stack_name = "sam-app"
+stack_name = "puppeteer-v2"
 
 [default.build.parameters]
+exclude = "node_modules"
 cached = true
 parallel = true
 

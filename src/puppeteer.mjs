@@ -1,4 +1,4 @@
-const { launch } = require("puppeteer");
+import { launch } from "puppeteer";
 
 const apiEndpoint =
   "https://s5.sir.sportradar.com/bet9javirtuals/en/1/category/1111";
@@ -7,7 +7,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-(async (vflId) => {
+export const fetchSeasonId = async (vflId) => {
   const browser = await launch({ headless: false });
   const page = await browser.newPage();
   await page.setUserAgent(
@@ -41,16 +41,9 @@ function sleep(ms) {
   if (clickFormCellHandle) {
     await clickFormCellHandle.click();
   }
+  const fullUrl = page.url();
+  const seasonId = fullUrl.substring(fullUrl.lastIndexOf("/") + 1);
+  await browser.close();
 
-  const text = await page.evaluate(el => el.textContent, element);
-
-  const element = await page.$('#example-element');
-
-  const currentUrl = page.url();
-  const seasonKey = currentUrl.substring(currentUrl.lastIndexOf("/") + 1);
-  //   await browser.close();
-  console.log(seasonKey);
-  return seasonKey;
-})(3);
-
-seasonid
+  return { seasonId, fullUrl: fullUrl + "/standings" };
+};

@@ -6,8 +6,10 @@
   "repository": "https://github.com/Kiyoonewton/GetSeasonIdAPI.git",
   "author": "Kiyoonewton <Kiyoonewton41@gmail.com>",
   "license": "MIT",
+  "type": "module",
   "scripts": {
-    "start": "nodemon src/index.mjs"
+    "start": "nodemon src/index.mjs",
+    "dev": "sam build && sam local start-api"
   },
   "devDependencies": {
     "express": "^4.19.2",
