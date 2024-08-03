@@ -1,0 +1,21 @@
+{
+  "name": "puppeteer",
+  "description": "Automated Crawler",
+  "version": "1.0.1",
+  "main": "src/index.mjs",
+  "repository": "https://github.com/Kiyoonewton/GetSeasonIdAPI.git",
+  "author": "Kiyoonewton <Kiyoonewton41@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "start": "nodemon src/index.mjs"
+  },
+  "devDependencies": {
+    "express": "^4.19.2",
+    "nodemon": "^3.1.4"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "^126.0.0",
+    "puppeteer": "^22.15.0",
+    "puppeteer-core": "^22.15.0"
+  }
+}
