@@ -6,9 +6,15 @@ const apiEndpoint =
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
-export const fetchSeasonId = async (vflId: number) => {
-  const browser = await launch({ headless: false });
+export const fetchSeasonId = async ({
+  vflId,
+  position,
+}: {
+  vflId: number;
+  position?: number;
+}) => {
+  position;
+  const browser = await launch();
   const page = await browser.newPage();
   await page.setUserAgent(
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -36,7 +42,7 @@ export const fetchSeasonId = async (vflId: number) => {
     await achivePathHandle.click();
   }
 
-  await sleep(1000);
+  await sleep(2000);
   const clickFormCellHandle = await page.$(clickFormCell);
   if (clickFormCellHandle) {
     await clickFormCellHandle.click();
