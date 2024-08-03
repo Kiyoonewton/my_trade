@@ -1,4 +1,4 @@
-import { fetchSeasonId } from "./puppeteer.mjs";
+import { fetchSeasonId } from "./gql/puppeteer";
 
 export const getSeasonId = async (event) => {
   if (event.httpMethod !== "POST") {

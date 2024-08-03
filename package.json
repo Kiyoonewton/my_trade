@@ -8,16 +8,17 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "start": "nodemon src/index.mjs",
-    "dev": "sam build && sam local start-api"
+    "compile": "tsc",
+    "start": "npm run compile && nodemon ./dist/index.js"
   },
   "devDependencies": {
+    "@types/node": "^22.1.0",
     "express": "^4.19.2",
-    "nodemon": "^3.1.4"
+    "nodemon": "^3.1.4",
+    "typescript": "^5.5.4"
   },
   "dependencies": {
-    "@sparticuz/chromium": "^126.0.0",
-    "puppeteer": "^22.15.0",
-    "puppeteer-core": "^22.15.0"
+    "@apollo/server": "^4.10.5",
+    "puppeteer": "^22.15.0"
   }
 }

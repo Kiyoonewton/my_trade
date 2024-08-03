@@ -3,11 +3,11 @@ import { launch } from "puppeteer";
 const apiEndpoint =
   "https://s5.sir.sportradar.com/bet9javirtuals/en/1/category/1111";
 
-function sleep(ms) {
+function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export const fetchSeasonId = async (vflId) => {
+export const fetchSeasonId = async (vflId: number) => {
   const browser = await launch({ headless: false });
   const page = await browser.newPage();
   await page.setUserAgent(
