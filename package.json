@@ -9,7 +9,7 @@
   "type": "module",
   "scripts": {
     "compile": "tsc",
-    "start": "rm -rf dist && yarn run compile && node ./dist/server.js"
+    "start": "yarn run compile && node ./dist/server.js"
   },
   "devDependencies": {
     "@types/node": "^22.1.0",

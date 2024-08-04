@@ -1,5 +1,5 @@
 export const TypeDefs = `#graphql
   type Query {
-    seasonId(vflId:Int!): String
+    seasonId(vflId:Int!, position:Int): String
   }
 `;

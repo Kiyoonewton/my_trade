@@ -1,4 +1,4 @@
-import { launch } from "puppeteer";
+import puppeteer from "puppeteer";
 
 const apiEndpoint =
   "https://s5.sir.sportradar.com/bet9javirtuals/en/1/category/1111";
@@ -11,10 +11,12 @@ export const fetchSeasonId = async ({
   position,
 }: {
   vflId: number;
-  position?: number;
+  position: number;
 }) => {
   position;
-  const browser = await launch();
+  const browser = await puppeteer.launch({
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
   const page = await browser.newPage();
   await page.setUserAgent(
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -28,7 +30,7 @@ export const fetchSeasonId = async ({
   const achivePath =
     "#sr-container > div > div > div.menu-wrapper.menu-full-width-bg.menu-mobile-top.menu-mobile-sticky > div.container.no-padding > ul > li:nth-child(6) > a";
   const clickFormCell =
-    "#sr-container > div > div > div.container.container-main.contair-full-height-flex-auto > div > div > div > div > div.panel.margin-bottom > div > div > div:nth-child(1) > table > tbody > tr:nth-child(2)";
+    `#sr-container > div > div > div.container.container-main.contair-full-height-flex-auto > div > div > div > div > div.panel.margin-bottom > div > div > div:nth-child(1) > table > tbody > tr:nth-child(${position ? position : 3})`;
   await page.goto(apiEndpoint);
 
   const bunPathHandle = await page.$(bunPath);
