@@ -1,5 +1,5 @@
 services:
-  crawler_app:
+  trade_crawler:
     build:
       context: ./trade_crawler
       dockerfile: Dockerfile
@@ -9,55 +9,55 @@ services:
       - "9000"
     env_file:
       - ./trade_crawler/.env.production
+   
 
-  nginx:
-    build:
-      context: ./trade_webserver
-      dockerfile: Dockerfile
+  trade_webserver:
+    image: nginx:latest
+    container_name: trade_nginx
     ports:
       - "80:80"
     volumes:
-      - ./webserver/conf.d:/etc/nginx/conf.d
-      - ./webserver/snippets:/etc/nginx/snippets
-      - ./trade_crawler:/var/www/html
+      - ./trade_webserver/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./trade_webserver/conf.d:/etc/nginx/conf.d:ro
+      - ./trade_webserver/snippets/fastcgi-php.conf:/etc/nginx/snippets/fastcgi-php.conf
     depends_on:
-      - crawler_app
-  
-  worker:
+      - trade_crawler
+      - trade_puppeteer
+   
+
+  trade_worker:
     build:
       context: ./trade_crawler
       dockerfile: Dockerfile
-    image: crawler_worker
-    container_name: crawler_worker
+    image: trade_worker
+    container_name: trade_worker
     volumes:
       - ./trade_crawler:/var/www/html
     depends_on:
       - mongodb
-      - crawler_app
+      - trade_crawler
     env_file:
       - ./trade_crawler/.env.production
     command: php artisan queue:work --tries=3 --timeout=90
     
   mongodb:
     image: mongo:latest
-    container_name: crawler_db
+    container_name: trade_mongodb
     ports:
       - "27017:27017"
     env_file:
       - ./trade_crawler/.env.production
     volumes:
       - mongodbdata:/data/db
-
-  puppeteer:
+   
+  trade_puppeteer:
     build: ./trade_puppeteer
-    container_name: get_seasonid
-    image: get_seasonid
+    container_name: trade_puppeteer
+    image: trade_puppeteer
     expose:
       - "4000"
     env_file:
       - ./trade_puppeteer/.env
-
-
     ports:
       - "4000:4000"
 
@@ -65,3 +65,6 @@ volumes:
   mongodbdata:
     driver: local
     
+networks:
+  trade_network:
+    driver: bridge
