@@ -1,7 +1,7 @@
 import puppeteer from "puppeteer";
+import 'dotenv/config';
 
-const apiEndpoint =
-  "https://s5.sir.sportradar.com/bet9javirtuals/en/1/category/1111";
+const apiEndpoint = process.env.SEASON_ENDPOINT;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
