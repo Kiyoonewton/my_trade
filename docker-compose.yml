@@ -1,0 +1,67 @@
+services:
+  crawler_app:
+    build:
+      context: ./trade_crawler
+      dockerfile: Dockerfile
+    image: trade_crawler
+    container_name: trade_crawler
+    expose:
+      - "9000"
+    env_file:
+      - ./trade_crawler/.env.production
+
+  nginx:
+    build:
+      context: ./trade_webserver
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    volumes:
+      - ./webserver/conf.d:/etc/nginx/conf.d
+      - ./webserver/snippets:/etc/nginx/snippets
+      - ./trade_crawler:/var/www/html
+    depends_on:
+      - crawler_app
+  
+  worker:
+    build:
+      context: ./trade_crawler
+      dockerfile: Dockerfile
+    image: crawler_worker
+    container_name: crawler_worker
+    volumes:
+      - ./trade_crawler:/var/www/html
+    depends_on:
+      - mongodb
+      - crawler_app
+    env_file:
+      - ./trade_crawler/.env.production
+    command: php artisan queue:work --tries=3 --timeout=90
+    
+  mongodb:
+    image: mongo:latest
+    container_name: crawler_db
+    ports:
+      - "27017:27017"
+    env_file:
+      - ./trade_crawler/.env.production
+    volumes:
+      - mongodbdata:/data/db
+
+  puppeteer:
+    build: ./getseasonid_api
+    container_name: get_seasonid
+    image: get_seasonid
+    expose:
+      - "4000"
+    env_file:
+      - ./getseasonid_api/.env
+
+
+    ports:
+      - "4000:4000"
+
+volumes:
+  mongodbdata:
+    driver: local
+    
