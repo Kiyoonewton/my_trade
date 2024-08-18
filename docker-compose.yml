@@ -49,13 +49,13 @@ services:
       - mongodbdata:/data/db
 
   puppeteer:
-    build: ./getseasonid_api
+    build: ./trade_puppeteer
     container_name: get_seasonid
     image: get_seasonid
     expose:
       - "4000"
     env_file:
-      - ./getseasonid_api/.env
+      - ./trade_puppeteer/.env
 
 
     ports:
