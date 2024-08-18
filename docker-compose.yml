@@ -9,7 +9,6 @@ services:
       - "9000"
     env_file:
       - ./trade_crawler/.env.production
-   
 
   trade_webserver:
     image: nginx:latest
@@ -64,7 +63,3 @@ services:
 volumes:
   mongodbdata:
     driver: local
-    
-networks:
-  trade_network:
-    driver: bridge
