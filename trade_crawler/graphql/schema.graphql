@@ -1,0 +1,39 @@
+scalar Timestamp @scalar(class: "App\\GraphQL\\Scalars\\Timestamp")
+
+### queries
+type Query {
+    oneSeason(seasonId: ID! @eq): Season @find
+    allSeason: [Season!]! @all
+    allMatchDays: [Details!]! @all
+}
+
+#### mutations
+type Mutation {
+    createSeason(seasonId: ID!, vflId: Int!): CreateSeasonOutput
+}
+
+type CreateSeasonOutput {
+    season_id: String
+}
+
+type Season {
+    iteration: Int
+    details: [Details]
+}
+
+type Details {
+    home: String
+    away: String
+    prediction: String
+    outcome: String
+    queryUrl: String
+    market: [Market]
+    matchday_id: String
+    season_id: Int
+}
+
+type Market {
+    type: String
+    odds: String
+    result: Int
+}

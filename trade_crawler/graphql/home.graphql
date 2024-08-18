@@ -1,0 +1,20 @@
+type Query {
+    users: [User!]! @paginate
+    user(uuid: ID! @eq): User @find
+}
+
+type Mutation {
+    createUser(
+        email: String! @rules(apply: ["email", "unique:users"])
+        name: String! @rules(apply: ["min:2"])
+    ): User! @create
+    updateUser(uuid: ID!, name: String, email: String): User! @update
+    deleteUser(uuid: ID! @whereKey): User! @delete
+    upsertUser(uuid: ID!, name: String!): User! @upsert
+}
+
+type User {
+    name: String
+    email: String
+    uuid: String
+}

@@ -1,0 +1,39 @@
+type MatchDay = {
+  odd: Odd;
+  queryUrl: string;
+};
+
+type Odd = {
+  tournament_id: string;
+  sport_id: string;
+  id: string;
+  teams: Teams;
+  market: Market;
+};
+
+type Market = {
+  id: string;
+  name: string;
+  status: string;
+  outcome: OutCome;
+};
+
+type OutCome = {
+  abbr: string;
+  active: number;
+  id: string;
+  name: string;
+  odds: string;
+  result: number;
+};
+
+type Teams = {
+  away: Team;
+  home: Team;
+};
+
+type Team = {
+  id: string;
+  name: string;
+  abbr: string;
+};

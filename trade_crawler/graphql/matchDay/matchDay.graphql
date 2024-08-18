@@ -1,0 +1,14 @@
+type Query {
+    matchDays:[Match!]! @paginate
+    matchday:(uuid: ID! @eq): Match @find
+}
+
+type Mutation {
+    createMatch(
+        email: String! @rules(apply: ["email", "unique:users"])
+        name: String! @rules(apply: ["min:2"])
+    ): User! @create
+    updateMatch(uuid: ID!, name: String, email: String): User! @update
+    deleteMatch(uuid: ID! @whereKey): User! @delete
+    upsertMatch(uuid: ID!, name: String!): User! @upsert
+}
