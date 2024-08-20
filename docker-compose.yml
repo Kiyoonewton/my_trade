@@ -23,8 +23,6 @@ services:
       - ./trade_webserver/snippets/fastcgi-php.conf:/etc/nginx/snippets/fastcgi-php.conf
     depends_on:
       - trade_crawler
-      - trade_puppeteer
-   
 
   trade_worker:
     build:
@@ -50,14 +48,21 @@ services:
       - ./trade_crawler/.env.production
     volumes:
       - ./mongodb:/data/db
-   
-  trade_puppeteer:
-    build: ./trade_puppeteer
-    container_name: trade_puppeteer
-    image: trade_puppeteer
-    expose:
-      - "4000"
-    env_file:
-      - ./trade_puppeteer/.env.production
+
+  redis:
+    image: redis:latest
     ports:
-      - "4000:4000"
+      - "6379:6379"
+    volumes:
+      - ./redisdb:/data
+  
+  # trade_puppeteer:
+  #   build: ./trade_puppeteer
+  #   container_name: trade_puppeteer
+  #   image: trade_puppeteer
+  #   expose:
+  #     - "4000"
+  #   env_file:
+  #     - ./trade_puppeteer/.env.production
+  #   ports:
+  #     - "4000:4000"
