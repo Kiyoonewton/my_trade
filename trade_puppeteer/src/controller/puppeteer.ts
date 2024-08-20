@@ -1,6 +1,6 @@
 import puppeteer from "puppeteer";
 import "dotenv/config";
-import { fetchCrawler } from "../functions/fetch-crawler.js";
+import { fetchCrawler } from "./fetch-crawler.js";
 
 const apiEndpoint = process.env.SEASON_ENDPOINT;
 

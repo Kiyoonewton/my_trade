@@ -27,3 +27,4 @@ trade_crawler/local
 trade_crawler/production
 
 mongodb
+redisdb

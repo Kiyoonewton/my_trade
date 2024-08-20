@@ -1,21 +1,5 @@
 import { fetchSeasonId } from "./controller/puppeteer.js";
-import { fetchCrawler } from "./functions/fetch-crawler.js";
-import redis from "redis";
-import "dotenv/config";
-
-const redisClient = redis.createClient({
-  url: `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
-});
-
-redisClient.on('connect', () => {
-    console.log('Connected to Redis');
-});
-
-redisClient.on('error', (err) => {
-    console.error('Redis error:', err);
-});
-
-redisClient.connect();
+import { fetchCrawler } from "./controller/fetch-crawler.js";
 
 export default async function curl({
   vflId,

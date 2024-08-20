@@ -14,16 +14,13 @@
   "devDependencies": {
     "@types/node": "^22.1.0",
     "@types/puppeteer": "^7.0.4",
-    "express": "^4.19.2",
     "nodemon": "^3.1.4",
     "typescript": "^5.5.4"
   },
   "dependencies": {
-    "@apollo/server": "^4.10.5",
     "axios": "^1.7.4",
     "dotenv": "^16.4.5",
-    "graphql": "^16.9.0",
-    "node-fetch": "^3.3.2",
+    "node-cron": "^3.0.3",
     "puppeteer": "^22.15.0",
     "redis": "^4.7.0"
   }
