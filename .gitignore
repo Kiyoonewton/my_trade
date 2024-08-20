@@ -1,5 +1,6 @@
 /trade_puppeteer/node_modules
 /trade_puppeteer/.env
+/trade_puppeteer/.env.production
 /trade_puppeteer/dist
 
 trade_crawler/.phpunit.cache
@@ -24,3 +25,5 @@ trade_crawler/.idea
 trade_crawler/.vscode
 trade_crawler/local
 trade_crawler/production
+
+mongodb

@@ -20,8 +20,10 @@
   },
   "dependencies": {
     "@apollo/server": "^4.10.5",
+    "axios": "^1.7.4",
     "dotenv": "^16.4.5",
     "graphql": "^16.9.0",
+    "node-fetch": "^3.3.2",
     "puppeteer": "^22.15.0"
   }
 }

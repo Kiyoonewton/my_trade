@@ -3,6 +3,7 @@ import { startStandaloneServer } from "@apollo/server/standalone";
 import { TypeDefs } from "./gql/schema.js";
 import { resolvers } from "./gql/resolver.js";
 
+const port = Number(process?.env?.PORT) || 4000;
 
 const server = new ApolloServer({
   typeDefs: TypeDefs,
@@ -10,7 +11,7 @@ const server = new ApolloServer({
 });
 
 const { url } = await startStandaloneServer(server, {
-  listen: { port: 4000 },
+  listen: { port },
 });
 
 console.log(`🚀  Server ready at: ${url}`);
