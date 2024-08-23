@@ -47,6 +47,4 @@ COPY . .
 
 RUN npx tsc --build
 
-EXPOSE 4000
-
-CMD [ "node", "dist/server.js" ]
+CMD [ "node", "dist/app.js" ]

@@ -1,6 +1,5 @@
 import puppeteer from "puppeteer";
 import "dotenv/config";
-import { fetchCrawler } from "./fetch-crawler.js";
 
 const apiEndpoint = process.env.SEASON_ENDPOINT;
 
@@ -17,6 +16,7 @@ export const fetchSeasonId = async ({
   position;
   const browser = await puppeteer.launch({
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    headless: true
   });
   const page = await browser.newPage();
   await page.setUserAgent(

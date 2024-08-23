@@ -11,6 +11,8 @@ services:
       - ./trade_crawler/.env.production
     ports:
       - "9000:9000"
+    depends_on:
+      - mongodb
 
   trade_webserver:
     image: nginx:latest
@@ -33,8 +35,7 @@ services:
     volumes:
       - ./trade_crawler:/var/www/html
     depends_on:
-      - mongodb
-      - trade_crawler
+      - trade_webserver
     env_file:
       - ./trade_crawler/.env.production
     command: php artisan queue:work --tries=3 --timeout=90
@@ -47,14 +48,15 @@ services:
     env_file:
       - ./trade_crawler/.env.production
     volumes:
-      - ./mongodb:/data/db
+      - ./db/mongodb:/data/db
 
   redis:
     image: redis:latest
+    container_name: trade_redisdb
     ports:
       - "6379:6379"
     volumes:
-      - ./redisdb:/data
+      - ./db/redisdb:/data
   
   # trade_puppeteer:
   #   build: ./trade_puppeteer
