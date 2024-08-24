@@ -49,35 +49,27 @@ class ProcessMatchday implements ShouldQueue
                 array_push($data, $response->json());
             }
 
-            if ($this->firstWin === 'loss') {
-                $existing = WinOrDrawMarket::where([
-                    ['season_id', '=', $this->seasonId],
-                    ['matchday_id', '=', $i],
-                ])->first();
-                $filterMatchdayDataService = new MatchdayDataClass($data, $i);
-                $filteredWinOrDrawData = $filterMatchdayDataService->getWinOrDrawMatchday();
-                $this->firstWin = $filteredWinOrDrawData['outcome'];
 
-                if (!$existing) {
-                    WinOrDrawMarket::create([...$filteredWinOrDrawData, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
-                }
+            $existing = WinOrDrawMarket::where([
+                ['season_id', '=', $this->seasonId],
+                ['matchday_id', '=', $i],
+            ])->first();
+            $filterMatchdayDataService = new MatchdayDataClass($data, $i);
+            $filteredWinOrDrawData = $filterMatchdayDataService->getWinOrDrawMatchday();
+
+            if (!$existing) {
+                WinOrDrawMarket::create([...$filteredWinOrDrawData, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
             }
 
-            if ($this->secondWin === 'loss') {
-                $existing = OverOrUnderMarket::where([
-                    ['season_id', '=', $this->seasonId],
-                    ['matchday_id', '=', $i],
-                ])->first();
-                $filterMatchdayDataService = new MatchdayDataClass($data, $i);
-                $filteredOverOrUnder = $filterMatchdayDataService->getOverOrUnderMatchday();
-                $this->secondWin = $filteredOverOrUnder['outcome'];
-                if (!$existing) {
-                    OverOrUnderMarket::create([...$filteredOverOrUnder, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
-                }
-            }
+            $existing = OverOrUnderMarket::where([
+                ['season_id', '=', $this->seasonId],
+                ['matchday_id', '=', $i],
+            ])->first();
+            $filterMatchdayDataService = new MatchdayDataClass($data, $i);
+            $filteredOverOrUnder = $filterMatchdayDataService->getOverOrUnderMatchday();
 
-            if ($this->firstWin === 'win' && $this->secondWin === 'win') {
-                break;
+            if (!$existing) {
+                OverOrUnderMarket::create([...$filteredOverOrUnder, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
             }
         }
     }
