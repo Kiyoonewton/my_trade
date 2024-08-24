@@ -3,8 +3,10 @@
 namespace App\Jobs;
 
 use App\Models\OverOrUnderMarket;
+use App\Models\TeamWinsAnalysis;
 use App\Models\WinOrDrawMarket;
 use App\Services\MatchdayDataClass;
+use App\Services\WinAnalysisClass;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -69,6 +71,18 @@ class ProcessMatchday implements ShouldQueue
 
             if (!$existing) {
                 OverOrUnderMarket::create([...$filteredOverOrUnder, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
+            }
+
+            if ($i === 30) {
+                $existing = TeamWinsAnalysis::where([
+                    ['season_id', '=', $this->seasonId],
+                    ['matchday_id', '=', $i],
+                ])->first();
+                $analysisService = new WinAnalysisClass($this->seasonId);
+                $filteredAnalysis = $analysisService->initializeAnalysis();
+                if (!$existing) {
+                    TeamWinsAnalysis::create([...$filteredAnalysis, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
+                }
             }
         }
     }
