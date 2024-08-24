@@ -49,7 +49,6 @@ class ProcessMatchday implements ShouldQueue
                 array_push($data, $response->json());
             }
 
-
             $existing = WinOrDrawMarket::where([
                 ['season_id', '=', $this->seasonId],
                 ['matchday_id', '=', $i],
