@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-class MatchdayDataClass
+class MatchdayData2Class
 {
     protected $matchday;
     protected $matchdayDetails;
@@ -13,13 +13,19 @@ class MatchdayDataClass
     protected $doc;
     protected $odds;
 
-    public function __construct(mixed $data, int $matchdayNumber)
+    public function __construct()
     {
-        $this->matchday = $data[0];
+        $path = storage_path('App/Data/data.json');
+        $json = file_get_contents($path);
+        $this->matchday = json_decode($json, true);
+
         $this->doc = $this->matchday["doc"][0];
         $this->odds = collect($this->doc["data"]["odds"]);
 
-        $this->matchdayDetails = $data[1];
+        $path2 = storage_path('App/Data/data2.json');
+        $json2 = file_get_contents($path2);
+        $this->matchdayDetails = json_decode($json2, true);
+
         $this->rawDatas = $this->matchdayDetails["doc"][0]["data"]["tables"][0]["tablerows"];
 
         $this->pointsTotal = [["pointsTotal" => $this->rawDatas[0]["pointsTotal"], "teamName" => $this->rawDatas[0]["team"]["name"]], ["pointsTotal" => $this->rawDatas[1]["pointsTotal"], "teamName" => $this->rawDatas[1]["team"]["name"]]];
@@ -76,6 +82,7 @@ class MatchdayDataClass
                 ];
             })->values()->all();
 
+        // return [$WinOrDraw1, $WinOrDraw2];
         $teams1 = $odd1['teams'];
         $teams2 = $odd2['teams'];
 

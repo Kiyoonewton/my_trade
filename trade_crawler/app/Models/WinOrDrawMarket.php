@@ -12,7 +12,7 @@ class WinOrDrawMarket extends Model
     protected $connection = 'mongodb';
     protected $collection = 'win_or_draw';
 
-    protected $fillable = ['season_id', 'matchday_id', 'queryUrl', 'home', 'away', 'market', 'outcome', 'prediction'];
+    protected $fillable = ['season_id', 'matchday_id', 'queryUrl', 'teams', 'market', 'outcome', 'prediction'];
 
     public function season()
     {
