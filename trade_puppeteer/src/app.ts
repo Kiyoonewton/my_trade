@@ -9,7 +9,8 @@ if (process.argv.length === 2) {
   const timestamp = new Date(value);
   const minusTimestampFromNewDate = Number(new Date()) - Number(timestamp);
   const anHourAnd52SecsInMs = 6720000;
-  const totalRoundMissed = Math.floor(minusTimestampFromNewDate / anHourAnd52SecsInMs) + 1; // plus 1 for the 13 or 14 matches diff of VFEL
+  const totalRoundMissed =
+    Math.floor(minusTimestampFromNewDate / anHourAnd52SecsInMs) + 1; // plus 1 for the 13 or 14 matches diff of VFEL
   console.log("Total round(s) missed:", totalRoundMissed);
   if (totalRoundMissed >= 1) {
     await execCrawlerLoop(totalRoundMissed);
