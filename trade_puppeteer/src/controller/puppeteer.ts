@@ -16,7 +16,7 @@ export const fetchSeasonId = async ({
   position;
   const browser = await puppeteer.launch({
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    headless: true
+    headless: true,
   });
   const page = await browser.newPage();
   await page.setUserAgent(
@@ -33,6 +33,9 @@ export const fetchSeasonId = async ({
   const clickFormCell = `#sr-container > div > div > div.container.container-main.contair-full-height-flex-auto > div > div > div > div > div.panel.margin-bottom > div > div > div:nth-child(1) > table > tbody > tr:nth-child(${
     position ? position : 3
   })`;
+  const buttonPath =
+    "#sr-container > div > div > div.container.container-main.contair-full-height-flex-auto > div > div > div > div > div.panel.margin-bottom > div > div > div.col-xs-12.text-center.margin-top-medium > button";
+
   await page.goto(apiEndpoint);
 
   const bunPathHandle = await page.$(bunPath);
@@ -47,6 +50,28 @@ export const fetchSeasonId = async ({
   }
 
   await sleep(2000);
+
+  if (position > 20) {
+    const clickIntervals = [30, 60];
+    let clicks = 1;
+
+    for (let interval of clickIntervals) {
+      if (position > interval) {
+        clicks++;
+      }
+    }
+
+    for (let i = 0; i < clicks; i++) {
+      const buttonPathHandle = await page.$(buttonPath);
+      if (buttonPathHandle) {
+        await buttonPathHandle.click();
+        if (i < clicks - 1) {
+          await sleep(500);
+        }
+      }
+    }
+  }
+
   const clickFormCellHandle = await page.$(clickFormCell);
   if (clickFormCellHandle) {
     await clickFormCellHandle.click();

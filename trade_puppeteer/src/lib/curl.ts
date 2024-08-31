@@ -14,8 +14,11 @@ export default async function curl({
       seasonId: seasonKey?.seasonId,
       vflId,
     });
-
-    console.log(crawler);
+    if (crawler) {
+      console.log(crawler);
+    } else {
+      console.log("Failed --->", position - 2, vflId);
+    }
   } catch (error) {
     console.log("error", error);
   }

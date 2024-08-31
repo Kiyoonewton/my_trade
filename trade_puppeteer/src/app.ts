@@ -22,10 +22,14 @@ if (process.argv.length === 2) {
   const args = process.argv.slice(2);
 
   if (Number(args[0]) >= 1) {
-    const iterations = [3, 7, 8];
-    iterations.map((item) =>
-      curl({ vflId: item, position: 2 + Number(args[0]) }),
-    );
+    if ((args.length = 2)) {
+      curl({ vflId: Number(args[1]), position: 2 + Number(args[0]) });
+    } else {
+      const iterations = [3, 7, 8];
+      iterations.map((item) =>
+        curl({ vflId: item, position: 2 + Number(args[0]) }),
+      );
+    }
   } else {
     console.log("Please input >= 1");
   }
