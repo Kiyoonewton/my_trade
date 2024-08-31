@@ -9,7 +9,7 @@ export async function execCrawlerLoop(totalRoundMissed: number) {
   try {
     for (let index = 0; index < totalRoundMissed; index++) {
       for (const item of iterations) {
-        await curl({ vflId: item, position: 2 + index });
+        await curl({ vflId: item, position: 3                + index });
 
         completedOperations++;
 
