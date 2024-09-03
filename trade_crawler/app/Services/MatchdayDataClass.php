@@ -106,8 +106,10 @@ class MatchdayDataClass
     {
         $highestGoalTeam1 = $this->highestGoal[0]['teamName'];
         $highestGoalTeam2 = $this->highestGoal[1]['teamName'];
+        $highestGoalTeam3 = $this->highestGoal[2]['teamName'];
         $odd1 = $this->filterMarketByTeam($highestGoalTeam1);
         $odd2 = $this->filterMarketByTeam($highestGoalTeam2);
+        $odd3 = $this->filterMarketByTeam($highestGoalTeam3);
         $total1 = (collect(collect($odd1["market"])->filter(function ($marketOdd) {
             return $marketOdd["id"] === 18 && $marketOdd["specifiers"] === "total=2.5";
         }))->map(function ($marketType) {
@@ -125,9 +127,19 @@ class MatchdayDataClass
 
             return ["second_pos" => [['type' => 'over', "odds" => $marketType["outcome"][0]["odds"], "result" => $marketType["outcome"][0]["result"]], ['type' => 'under', "odds" => $marketType["outcome"][1]["odds"], "result" => $marketType["outcome"][1]["result"]]]];
         }))->first();
+
+        $total3 = (collect(collect($odd3["market"])->filter(function ($marketOdd) {
+            return $marketOdd["id"] === 18 && $marketOdd["specifiers"] === "total=2.5";
+        }))->map(function ($marketType) {
+            $key = explode("=",  $marketType["specifiers"]);
+            $key = array_map('trim',  $key);
+
+            return ["third_pos" => [['type' => 'over', "odds" => $marketType["outcome"][0]["odds"], "result" => $marketType["outcome"][0]["result"]], ['type' => 'under', "odds" => $marketType["outcome"][1]["odds"], "result" => $marketType["outcome"][1]["result"]]]];
+        }))->first();
         return ["queryUrl" => $this->matchday["queryUrl"], 'prediction' => ["first_pos" => 'Over2.5', "second_pos" => 'Over2.5'], "teams" => [
             "first_pos" => ["home" => $odd1["teams"]["home"]["name"], "away" => $odd1["teams"]["away"]["name"]],
-            "second_pos" => ["home" => $odd2["teams"]["home"]["name"], "away" => $odd2["teams"]["away"]["name"]]
-        ], 'market' => [...$total1, ...$total2], 'outcome' => ["first_pos" => $total1['first_pos'][0]['result'] === 1 ? '1' : '2', "second_pos" => $total2['second_pos'][0]['result'] === 1 ? '1' : '2']];
+            "second_pos" => ["home" => $odd2["teams"]["home"]["name"], "away" => $odd2["teams"]["away"]["name"]],
+            "third_pos" => ["home" => $odd3["teams"]["home"]["name"], "away" => $odd3["teams"]["away"]["name"]]
+        ], 'market' => [...$total1, ...$total2,  ...$total3], 'outcome' => ["first_pos" => $total1['first_pos'][0]['result'] === 1 ? '1' : '2', "second_pos" => $total2['second_pos'][0]['result'] === 1 ? '1' : '2', "third_pos" => $total3['third_pos'][0]['result'] === 1 ? '1' : '2']];
     }
 }

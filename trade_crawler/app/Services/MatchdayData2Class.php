@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Log;
+
 class MatchdayData2Class
 {
     protected $matchday;
@@ -99,6 +101,7 @@ class MatchdayData2Class
         $outcome2 = (collect($WinOrDraw2)->filter(function ($filterPrediction) use ($homeOrAway2) {
             return $filterPrediction['type'] === $homeOrAway2;
         }))->values()->first()['result'] === 1 ? '1' : ($WinOrDraw2[1]['result'] === 1 ? 'x' : '2');
+        Log::info('logged to tinker',[$homeOrAway1, $homeOrAway2]);
 
         return [
             "queryUrl" => $this->matchday["queryUrl"],

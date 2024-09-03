@@ -36,7 +36,7 @@ class ProcessMatchday implements ShouldQueue
      */
     public function handle()
     {
-        for ($i = 26; $i <= 30; $i++) {
+        for ($i = 24; $i <= 30; $i++) {
             $data = [];
             $apiUrls = [
                 $this->main_data_url . ":" . $this->seasonId . "/" . $i,
