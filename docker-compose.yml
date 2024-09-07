@@ -46,15 +46,15 @@ services:
     env_file:
       - ./trade_crawler/.env.production
     volumes:
-      - ./db/mongodb:/data/db
+      - mongodb:/data/db
 
-  redis:
+  redisdb:
     image: redis:latest
     container_name: trade_redisdb
     ports:
       - "6379:6379"
     volumes:
-      - ./db/redisdb:/data
+      - redisdb:/data
   
   # trade_puppeteer:
   #   build: ./trade_puppeteer
@@ -65,3 +65,7 @@ services:
   #   depends_on:
   #     - redis
   #     - trade_worker
+
+volumes:
+  mongodb:
+  redisdb:
