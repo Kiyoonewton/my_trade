@@ -9,11 +9,13 @@ type Query {
 
 #### mutations
 type Mutation {
-    createSeason(seasonId: ID!, vflId: Int!): CreateSeasonOutput
+    createSeason(seasonId: ID!, team1: String!, team2: String!): CreateSeasonOutput
 }
 
 type CreateSeasonOutput {
     season_id: String
+    team1: String
+    team2: String
 }
 
 type Season {

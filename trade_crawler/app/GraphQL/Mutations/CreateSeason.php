@@ -10,11 +10,9 @@ class CreateSeason
     public function __invoke($_, array $args)
     {
         $seasonId = $args['seasonId'];
-        $season = Season::where('seasonId', $seasonId)->first();
-        if (!$season) {
-            Season::create(['seasonId' => $seasonId, 'type' => ($args['vflId'] === 3) ? 'VFLM' : (($args['vflId'] === 7) ? 'VFEL' : 'VFB')]);
-        }
-        dispatch(new ProcessMatchday($seasonId));
-        return ['season_id' => $seasonId];
+        $team1 = $args['team1'];
+        $team2 = $args['team2'];
+        dispatch(new ProcessMatchday($seasonId, $team1, $team2));
+        return ['season_id' => $seasonId, 'team1' => $team1, 'team2' => $team2];
     }
 }

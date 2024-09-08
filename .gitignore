@@ -8,7 +8,8 @@ trade_crawler/node_modules
 trade_crawler/public/build
 trade_crawler/public/hot
 trade_crawler/public/storage
-trade_crawler/storage/*.key
+trade_crawler/storage
+trade_crawler/bootstrap
 trade_crawler/vendor
 trade_crawler/.env
 trade_crawler/.env.backup
