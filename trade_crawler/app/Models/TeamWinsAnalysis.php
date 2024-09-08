@@ -11,10 +11,5 @@ class TeamWinsAnalysis extends Model
     protected $connection = 'mongodb';
     protected $collection = 'win_analysis';
 
-    protected $fillable = ['season_id', 'matchday_id', 'queryUrl', 'team', 'no_played', 'no_won'];
-
-    public function season()
-    {
-        return $this->belongsTo(Season::class, 'season_id');
-    }
+    protected $fillable = ['season_id', 'matchday_id', 'queryUrl', 'teams', 'markets', 'result'];
 };

@@ -83,4 +83,3 @@ then move to doing this
 -sail artisan config:clear
 -sail artisan config:cache
 -sail artisan migrate
-

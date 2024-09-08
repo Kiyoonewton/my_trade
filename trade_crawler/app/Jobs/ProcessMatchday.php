@@ -26,7 +26,7 @@ class ProcessMatchday implements ShouldQueue
     protected string $table_url = "";
     public string $firstWin = 'loss';
     public string $secondWin = 'loss';
-    public function __construct(public string $seasonId)
+    public function __construct(public string $seasonId, public string $team1, public string $team2)
     {
         $this->main_data_url = env('MAIN_DATA_URL');
         $this->table_url = env('TABLE_URL');
@@ -36,54 +36,56 @@ class ProcessMatchday implements ShouldQueue
      */
     public function handle()
     {
-        for ($i = 24; $i <= 30; $i++) {
-            $data = [];
-            $apiUrls = [
-                $this->main_data_url . ":" . $this->seasonId . "/" . $i,
-                "$this->table_url/$this->seasonId/1/" . ($i - 1)
-            ];
+        for ($i = 1; $i <= 15; $i++) {
+            // $data = [];
+            // $apiUrls = [
+            $data = $this->main_data_url . ":" . $this->seasonId . "/" . $i;
+                // "$this->table_url/$this->seasonId/1/" . ($i - 1)
+            // ];
 
-            foreach ($apiUrls as $apiUrl) {
-                $response = Http::get($apiUrl);
-                if ($response->failed()) {
-                    throw new \Exception('Cannot fetch data from the api');
-                }
-                array_push($data, $response->json());
+            // foreach ($apiUrls as $apiUrl) {
+            $response = Http::get($data);
+            if ($response->failed()) {
+                throw new \Exception('Cannot fetch data from the api');
             }
+            $data = $response->json();
+            // }
 
-            $existing = WinOrDrawMarket::where([
-                ['season_id', '=', $this->seasonId],
-                ['matchday_id', '=', $i],
-            ])->first();
-            $filterMatchdayDataService = new MatchdayDataClass($data, $i);
-            $filteredWinOrDrawData = $filterMatchdayDataService->getWinOrDrawMatchday();
+            return $data;
 
-            if (!$existing) {
-                WinOrDrawMarket::create([...$filteredWinOrDrawData, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
-            }
+            // $existing = WinOrDrawMarket::where([
+            //     ['season_id', '=', $this->seasonId],
+            //     ['matchday_id', '=', $i],
+            // ])->first();
+            // $filterMatchdayDataService = new MatchdayDataClass($data, $i);
+            // $filteredWinOrDrawData = $filterMatchdayDataService->getWinOrDrawMatchday();
 
-            $existing = OverOrUnderMarket::where([
-                ['season_id', '=', $this->seasonId],
-                ['matchday_id', '=', $i],
-            ])->first();
-            $filterMatchdayDataService = new MatchdayDataClass($data, $i);
-            $filteredOverOrUnder = $filterMatchdayDataService->getOverOrUnderMatchday();
+            // if (!$existing) {
+            //     WinOrDrawMarket::create([...$filteredWinOrDrawData, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
+            // }
 
-            if (!$existing) {
-                OverOrUnderMarket::create([...$filteredOverOrUnder, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
-            }
+            // $existing = OverOrUnderMarket::where([
+            //     ['season_id', '=', $this->seasonId],
+            //     ['matchday_id', '=', $i],
+            // ])->first();
+            // $filterMatchdayDataService = new MatchdayDataClass($data, $i);
+            // $filteredOverOrUnder = $filterMatchdayDataService->getOverOrUnderMatchday();
 
-            if ($i === 30) {
-                $existing = TeamWinsAnalysis::where([
-                    ['season_id', '=', $this->seasonId],
-                    ['matchday_id', '=', $i],
-                ])->first();
-                $analysisService = new WinAnalysisClass($this->seasonId);
-                $filteredAnalysis = $analysisService->initializeAnalysis();
-                if (!$existing) {
-                    TeamWinsAnalysis::create([...$filteredAnalysis, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
-                }
-            }
+            // if (!$existing) {
+            //     OverOrUnderMarket::create([...$filteredOverOrUnder, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
+            // }
+
+            // if ($i === 30) {
+            //     $existing = TeamWinsAnalysis::where([
+            //         ['season_id', '=', $this->seasonId],
+            //         ['matchday_id', '=', $i],
+            //     ])->first();
+            //     $analysisService = new WinAnalysisClass($this->seasonId);
+            //     $filteredAnalysis = $analysisService->initializeAnalysis();
+            //     if (!$existing) {
+            //         TeamWinsAnalysis::create([...$filteredAnalysis, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
+            //     }
+            // }
         }
     }
 }
