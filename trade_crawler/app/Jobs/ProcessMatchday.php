@@ -2,11 +2,8 @@
 
 namespace App\Jobs;
 
-use App\Models\OverOrUnderMarket;
 use App\Models\TeamWinsAnalysis;
-use App\Models\WinOrDrawMarket;
 use App\Services\MatchdayDataClass;
-use App\Services\WinAnalysisClass;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -34,58 +31,52 @@ class ProcessMatchday implements ShouldQueue
     /**
      * Execute the job.
      */
+
+    protected function filterByFeatures(mixed $data, string $team1, string $team2)
+    {
+        return (collect(collect($data['doc'])->first()['data']['odds'])->filter(function ($odd) use ($team1, $team2) {
+            return (
+                ($odd["teams"]["home"]["name"] === $team1 && $odd["teams"]["away"]["name"] === $team2) ||
+                ($odd["teams"]["home"]["name"] === $team2 && $odd["teams"]["away"]["name"] === $team1)
+            );
+        }))->first();
+    }
+    protected function fetchData(int $i)
+    {
+        $data = $this->main_data_url . ":" . $this->seasonId . "/" . $i;
+
+        $response = Http::get($data);
+        if ($response->failed()) {
+            throw new \Exception('Cannot fetch data from the api');
+        }
+        $data = $response->json();
+        return $data;
+    }
+
     public function handle()
     {
         for ($i = 1; $i <= 15; $i++) {
-            // $data = [];
-            // $apiUrls = [
-            $data = $this->main_data_url . ":" . $this->seasonId . "/" . $i;
-                // "$this->table_url/$this->seasonId/1/" . ($i - 1)
-            // ];
 
-            // foreach ($apiUrls as $apiUrl) {
-            $response = Http::get($data);
-            if ($response->failed()) {
-                throw new \Exception('Cannot fetch data from the api');
+            $existing = TeamWinsAnalysis::where([
+                ['season_id', '=', $this->seasonId],
+                ['matchday_id', '=', $i],
+            ])->first();
+
+            if ($existing) {
+                return;
             }
-            $data = $response->json();
-            // }
 
-            return $data;
-
-            // $existing = WinOrDrawMarket::where([
-            //     ['season_id', '=', $this->seasonId],
-            //     ['matchday_id', '=', $i],
-            // ])->first();
-            // $filterMatchdayDataService = new MatchdayDataClass($data, $i);
-            // $filteredWinOrDrawData = $filterMatchdayDataService->getWinOrDrawMatchday();
-
-            // if (!$existing) {
-            //     WinOrDrawMarket::create([...$filteredWinOrDrawData, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
-            // }
-
-            // $existing = OverOrUnderMarket::where([
-            //     ['season_id', '=', $this->seasonId],
-            //     ['matchday_id', '=', $i],
-            // ])->first();
-            // $filterMatchdayDataService = new MatchdayDataClass($data, $i);
-            // $filteredOverOrUnder = $filterMatchdayDataService->getOverOrUnderMatchday();
-
-            // if (!$existing) {
-            //     OverOrUnderMarket::create([...$filteredOverOrUnder, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
-            // }
-
-            // if ($i === 30) {
-            //     $existing = TeamWinsAnalysis::where([
-            //         ['season_id', '=', $this->seasonId],
-            //         ['matchday_id', '=', $i],
-            //     ])->first();
-            //     $analysisService = new WinAnalysisClass($this->seasonId);
-            //     $filteredAnalysis = $analysisService->initializeAnalysis();
-            //     if (!$existing) {
-            //         TeamWinsAnalysis::create([...$filteredAnalysis, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
-            //     }
-            // }
+            $filteredFeature = $this->filterByFeatures($this->fetchData($i), $this->team1, $this->team2);
+            if ($filteredFeature) {
+                $filterMatchdayDataService = new MatchdayDataClass($this->fetchData($i)['queryUrl'], $filteredFeature);
+                $filteredWinOrDrawData = $filterMatchdayDataService->getOverOrUnderMatchday();
+                TeamWinsAnalysis::create([...$filteredWinOrDrawData, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
+                //plus 15
+                $filterMatchdayDataService = new MatchdayDataClass($this->fetchData($i + 15)['queryUrl'], $filteredFeature);
+                $filteredWinOrDrawData = $filterMatchdayDataService->getOverOrUnderMatchday();
+                TeamWinsAnalysis::create([...$filteredWinOrDrawData, 'season_id' => $this->seasonId, 'matchday_id' => $i + 15]);
+                break;
+            }
         }
     }
 }
