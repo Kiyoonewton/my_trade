@@ -21,8 +21,6 @@ class ProcessMatchday implements ShouldQueue
 
     protected string $main_data_url = "";
     protected string $table_url = "";
-    public string $firstWin = 'loss';
-    public string $secondWin = 'loss';
     public function __construct(public string $seasonId, public string $team1, public string $team2)
     {
         $this->main_data_url = env('MAIN_DATA_URL');
@@ -53,6 +51,11 @@ class ProcessMatchday implements ShouldQueue
         return $data;
     }
 
+    protected function fetchFilteredByFeatures(int $index)
+    {
+        return $this->filterByFeatures($this->fetchData($index), $this->team1, $this->team2);
+    }
+
     public function handle()
     {
         for ($i = 1; $i <= 15; $i++) {
@@ -66,16 +69,17 @@ class ProcessMatchday implements ShouldQueue
                 return;
             }
 
-            $filteredFeature = $this->filterByFeatures($this->fetchData($i), $this->team1, $this->team2);
+            $filteredFeature = $this->fetchFilteredByFeatures($i);
             if ($filteredFeature) {
-                $filterMatchdayDataService = new MatchdayDataClass($this->fetchData($i)['queryUrl'], $filteredFeature);
-                $filteredWinOrDrawData = $filterMatchdayDataService->getOverOrUnderMatchday();
-                TeamWinsAnalysis::create([...$filteredWinOrDrawData, 'season_id' => $this->seasonId, 'matchday_id' => $i]);
-                //plus 15
-                $filterMatchdayDataService = new MatchdayDataClass($this->fetchData($i + 15)['queryUrl'], $filteredFeature);
-                $filteredWinOrDrawData = $filterMatchdayDataService->getOverOrUnderMatchday();
-                TeamWinsAnalysis::create([...$filteredWinOrDrawData, 'season_id' => $this->seasonId, 'matchday_id' => $i + 15]);
-                break;
+                return collect([$i, $i + 15])->map(function ($index) {
+                    $filterMatchdayDataService = new MatchdayDataClass($this->fetchData($index)['queryUrl'], $this->fetchFilteredByFeatures($index));
+                    $filteredWinOrDrawData = $filterMatchdayDataService->getOverOrUnderMatchday();
+                    TeamWinsAnalysis::create([
+                        ...$filteredWinOrDrawData,
+                        'season_id' => $this->seasonId
+                    ]);
+                    return $filteredWinOrDrawData;
+                });
             }
         }
     }

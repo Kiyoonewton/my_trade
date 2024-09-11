@@ -6,7 +6,7 @@ services:
     image: trade_crawler
     container_name: trade_crawler
     env_file:
-      - ./trade_crawler/.env
+      - ./trade_crawler/.env.production
     volumes:
       - ./trade_crawler:/var/www/html
     ports:
@@ -37,7 +37,7 @@ services:
     depends_on:
       - trade_crawler
     env_file:
-      - ./trade_crawler/.env
+      - ./trade_crawler/.env.production
     command: php artisan queue:work --tries=3 --timeout=90
     
   mongodb:
@@ -46,7 +46,7 @@ services:
     ports:
       - "27017:27017"
     env_file:
-      - ./trade_crawler/.env
+      - ./trade_crawler/.env.production
     volumes:
       - ./db/mongodb:/data/db
 

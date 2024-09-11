@@ -86,24 +86,24 @@ class MatchdayDataClass
     //     ];
     // }
 
-    public function getOverOrUnderMatchday()
+    public function getOverOrUnderMatchday(): array
     {
-        $total = (collect(collect($this->filteredFeature["market"])->filter(function ($marketOdd) {
+        $total = (collect(value: collect(value: $this->filteredFeature["market"])->filter(function ($marketOdd) {
             return $marketOdd["id"] === 18 && $marketOdd["specifiers"] === "total=2.5";
-        }))->map(function ($marketType) {
-            $key = explode("=",  $marketType["specifiers"]);
-            $key = array_map('trim',  $key);
+        }))->map(function ($marketType): array {
+            $key = explode(separator: "=",  string: $marketType["specifiers"]);
+            $key = array_map(callback: 'trim',  array: $key);
 
             return  [['type' => 'over', "odds" => $marketType["outcome"][0]["odds"], "result" => $marketType["outcome"][0]["result"]], ['type' => 'under', "odds" => $marketType["outcome"][1]["odds"], "result" => $marketType["outcome"][1]["result"]]];
         }))->first();
 
         return [
-            "queryUrl" => $this->queryUrl,
+            "matchday_id" => substr($this->queryUrl, strrpos($this->queryUrl, '/') + 1),
             'result' => $total[0]['result'],
-            "teams" => [
-                ["home" => $this->filteredFeature["teams"]["home"]["name"], "away" => $this->filteredFeature["teams"]["away"]["name"]]
-            ],
-            'market' => $total
+            'over' => $total[0]['odds'],
+            'under' => $total[1]['odds'],
+            "home" => $this->filteredFeature["teams"]["home"]["name"],
+            "away" => $this->filteredFeature["teams"]["away"]["name"]
         ];
     }
 }
