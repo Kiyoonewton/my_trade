@@ -26,19 +26,19 @@ services:
   #   depends_on:
   #     - trade_crawler
 
-  trade_worker:
-    build:
-      context: ./trade_crawler
-      dockerfile: Dockerfile
-    image: trade_worker
-    container_name: trade_worker
-    volumes:
-      - ./trade_crawler:/var/www/html
-    depends_on:
-      - trade_crawler
-    env_file:
-      - ./trade_crawler/.env.production
-    command: php artisan queue:work --tries=3 --timeout=90
+  # trade_worker:
+  #   build:
+  #     context: ./trade_crawler
+  #     dockerfile: Dockerfile
+  #   image: trade_worker
+  #   container_name: trade_worker
+  #   volumes:
+  #     - ./trade_crawler:/var/www/html
+  #   depends_on:
+  #     - trade_crawler
+  #   env_file:
+  #     - ./trade_crawler/.env.production
+  #   command: php artisan queue:work --tries=3 --timeout=90
     
   mongodb:
     image: mongo:latest

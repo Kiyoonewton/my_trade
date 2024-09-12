@@ -98,7 +98,7 @@ class MatchdayDataClass
         }))->first();
 
         return [
-            "matchday_id" => substr($this->queryUrl, strrpos($this->queryUrl, '/') + 1),
+            "matchday_id" => (int) substr($this->queryUrl, strrpos($this->queryUrl, '/') + 1),
             'result' => $total[0]['result'],
             'over' => $total[0]['odds'],
             'under' => $total[1]['odds'],

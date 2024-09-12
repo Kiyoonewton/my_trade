@@ -23,8 +23,7 @@ class ProcessMatchday implements ShouldQueue
     protected string $table_url = "";
     public function __construct(public string $seasonId, public string $team1, public string $team2)
     {
-        $this->main_data_url = env('MAIN_DATA_URL');
-        $this->table_url = env('TABLE_URL');
+        $this->main_data_url = env('MAIN_DATA_URL', 'https://vgls.betradar.com/vfl/feeds/?/bet9ja/en/Europe:Berlin/gismo/vfc_stats_round_odds2/vf:season');
     }
     /**
      * Execute the job.
@@ -66,7 +65,7 @@ class ProcessMatchday implements ShouldQueue
             ])->first();
 
             if ($existing) {
-                return;
+                return null;
             }
 
             $filteredFeature = $this->fetchFilteredByFeatures($i);
@@ -78,7 +77,10 @@ class ProcessMatchday implements ShouldQueue
                         ...$filteredWinOrDrawData,
                         'season_id' => $this->seasonId
                     ]);
-                    return $filteredWinOrDrawData;
+                    return [
+                        ...$filteredWinOrDrawData,
+                        'season_id' => $this->seasonId
+                    ];
                 });
             }
         }

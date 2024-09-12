@@ -9,7 +9,7 @@ type Query {
 
 #### mutations
 type Mutation {
-    createSeason(seasonId: ID!, team1: String!, team2: String!): CreateSeasonOutput
+    createSeason(seasonId: ID!, team1: String!, team2: String!): MatchesResponse!
 }
 
 type CreateSeasonOutput {
@@ -23,15 +23,23 @@ type Season {
     details: [Details]
 }
 
+union MatchesResponse = MatchList | StringResponse
+
+type MatchList {
+    data: [Details!]!
+}
+type StringResponse {
+    message: String!
+}
+
 type Details {
     home: String
     away: String
-    prediction: String
-    outcome: String
-    queryUrl: String
-    market: [Market]
-    matchday_id: String
-    season_id: Int
+    result: Int
+    over: String
+    under: String
+    matchday_id: Int
+    season_id: String
 }
 
 type Market {
