@@ -3,7 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OverOrUnderMarket extends Model
 {
@@ -11,9 +12,9 @@ class OverOrUnderMarket extends Model
     protected $connection = 'mongodb';
     protected $collection = 'over_or_under';
 
-    protected $fillable = ['season_id', 'matchday_id', 'queryUrl', 'teams', 'market', 'outcome', 'prediction'];
+    protected $fillable = ['season_id', 'matchday_id', 'home', 'away', 'over', 'under', 'result'];
 
-    public function season()
+    public function season(): BelongsTo
     {
         return $this->belongsTo(Season::class, 'season_id');
     }

@@ -3,17 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class Season extends Model
 {
     use HasFactory;
-    protected $connection = 'mongodb';
-    protected $collection = 'seasons';
     protected $primaryKey = 'seasonId';
-    public $incrementing = false;
-    protected $keyType = 'string';
-    protected $fillable = ['seasonId', 'type'];
+    protected $fillable = ['seasonId'];
 
     public function winOrDrawMarket()
     {

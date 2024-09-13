@@ -3,18 +3,16 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WinOrDrawMarket extends Model
 {
     use HasFactory;
 
-    protected $connection = 'mongodb';
-    protected $collection = 'win_or_draw';
+    protected $fillable = ['season_id', 'matchday_id', 'home', 'away', 'over', 'under', 'result'];
 
-    protected $fillable = ['season_id', 'matchday_id', 'queryUrl', 'teams', 'market', 'outcome', 'prediction'];
-
-    public function season()
+    public function season(): BelongsTo
     {
         return $this->belongsTo(Season::class, 'season_id');
     }
