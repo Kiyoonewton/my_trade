@@ -13,9 +13,10 @@ class MatchdayDataClass
     protected $doc;
     protected $odds;
 
-    public function __construct(public string $queryUrl, protected array $filteredFeature)
+    public function __construct(protected array $data)
     {
-        //...;
+        $this->doc = $this->data["doc"][0];
+        $this->odds = collect($this->doc["data"]["odds"]);
     }
 
     // public function getWinOrDrawMatchday()
@@ -88,22 +89,22 @@ class MatchdayDataClass
 
     public function getOverOrUnderMatchday(): array
     {
-        $total = (collect(value: collect(value: $this->filteredFeature["market"])->filter(function ($marketOdd) {
-            return $marketOdd["id"] === 18 && $marketOdd["specifiers"] === "total=2.5";
-        }))->map(function ($marketType): array {
-            $key = explode(separator: "=",  string: $marketType["specifiers"]);
-            $key = array_map(callback: 'trim',  array: $key);
-
-            return  [['type' => 'over', "odds" => $marketType["outcome"][0]["odds"], "result" => $marketType["outcome"][0]["result"]], ['type' => 'under', "odds" => $marketType["outcome"][1]["odds"], "result" => $marketType["outcome"][1]["result"]]];
-        }))->first();
-
+        $total = collect($this->odds)->map(function ($odd) {
+            return collect($odd["market"])->filter(function ($marketOdd) {
+                return $marketOdd["id"] === 18 && $marketOdd["specifiers"] === "total=2.5";
+            })->map(function ($marketType) use ($odd) {
+                return [
+                    'over' => $marketType["outcome"][0]["odds"],
+                    'under' => $marketType["outcome"][1]["odds"],
+                    'result' => $marketType["outcome"][0]["result"],
+                    'home' => $odd["teams"]["home"]["name"],
+                    'away' => $odd["teams"]["away"]["name"],
+                    "matchday_id" => (int) substr($this->data["queryUrl"], strrpos($this->data["queryUrl"], '/') + 1),
+                ];
+            })->values();
+        })->flatten(1);
         return [
-            "matchday_id" => (int) substr($this->queryUrl, strrpos($this->queryUrl, '/') + 1),
-            'result' => $total[0]['result'],
-            'over' => $total[0]['odds'],
-            'under' => $total[1]['odds'],
-            "home" => $this->filteredFeature["teams"]["home"]["name"],
-            "away" => $this->filteredFeature["teams"]["away"]["name"]
+            ...$total,
         ];
     }
 }

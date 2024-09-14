@@ -9,19 +9,10 @@ class CreateSeason
     public function __invoke($_, array $args)
     {
         $seasonId = $args['seasonId'];
-        $team1 = $args['team1'];
-        $team2 = $args['team2'];
-        $job = new ProcessMatchday($seasonId, $team1, $team2);
+        $job = new ProcessMatchday($seasonId);
         $returnData = $job->handle();
-        if ($returnData) {
-            return [
-                '__typename' => 'MatchList',
-                'data' => $returnData
-            ];
-        }
         return [
-            '__typename' => 'StringResponse',
-            'message' => 'Already Existing',
+            'data' => count($returnData) === 240 && !in_array(null, $returnData, true)  ? 'complete' : 'incomplete',
         ];
     }
 }
