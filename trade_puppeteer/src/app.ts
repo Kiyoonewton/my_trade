@@ -1,5 +1,5 @@
-import curl from "./lib/curl.js";
 import { redisClient } from "./db/redis.js";
+import curl from "./lib/curl.js";
 import { execCrawlerLoop } from "./lib/execCrawlerLoop.js";
 
 //process through a iterateCurl
