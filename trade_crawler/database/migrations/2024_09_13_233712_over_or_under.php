@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('over_or_under', function (Blueprint $table): void {
+        Schema::create('over_or_unders', function (Blueprint $table): void {
             $table->id();
             $table->unsignedBigInteger('season_id');
             $table->unsignedInteger('matchday_id');

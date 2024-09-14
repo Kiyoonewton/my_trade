@@ -8,16 +8,17 @@ use Illuminate\Database\Eloquent\Model;
 class Season extends Model
 {
     use HasFactory;
+    protected $table = 'seasons';
     protected $primaryKey = 'seasonId';
     protected $fillable = ['seasonId'];
 
     public function winOrDrawMarket()
     {
-        return $this->hasMany(WinOrDrawMarket::class, 'season_id');
+        return $this->hasMany(WinOrDraw::class, 'season_id');
     }
 
     public function overOrUnderMarket()
     {
-        return $this->hasMany(OverOrUnderMarket::class, 'season_id');
+        return $this->hasMany(OverOrUnder::class, 'season_id');
     }
 }

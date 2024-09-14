@@ -6,9 +6,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class WinOrDrawMarket extends Model
+class WinOrDraw extends Model
 {
     use HasFactory;
+    protected $table = 'win_or_draws';
 
     protected $fillable = ['season_id', 'matchday_id', 'home', 'away', 'over', 'under', 'result'];
 

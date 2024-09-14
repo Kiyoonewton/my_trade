@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('win_or_draw', function (Blueprint $table): void {
+        Schema::create('win_or_draws', function (Blueprint $table): void {
             $table->id();
             $table->unsignedBigInteger('season_id');
             $table->unsignedInteger('matchday_id');

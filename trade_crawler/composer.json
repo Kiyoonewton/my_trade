@@ -10,7 +10,6 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
         "mll-lab/laravel-graphiql": "^3.2",
-        "mongodb/mongodb": "^1.19",
         "nuwave/lighthouse": "^6.42",
         "react/promise": "^3.2"
     },

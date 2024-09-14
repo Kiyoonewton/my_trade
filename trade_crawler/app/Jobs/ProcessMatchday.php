@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Models\TeamWinsAnalysis;
+use App\Models\OverOrUnder;
 use App\Services\MatchdayDataClass;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -59,7 +59,7 @@ class ProcessMatchday implements ShouldQueue
     {
         for ($i = 1; $i <= 15; $i++) {
 
-            $existing = TeamWinsAnalysis::where([
+            $existing = OverOrUnder::where([
                 ['season_id', '=', $this->seasonId],
                 ['matchday_id', '=', $i],
             ])->first();
@@ -73,7 +73,7 @@ class ProcessMatchday implements ShouldQueue
                 return collect([$i, $i + 15])->map(function ($index) {
                     $filterMatchdayDataService = new MatchdayDataClass($this->fetchData($index)['queryUrl'], $this->fetchFilteredByFeatures($index));
                     $filteredWinOrDrawData = $filterMatchdayDataService->getOverOrUnderMatchday();
-                    TeamWinsAnalysis::create([
+                    OverOrUnder::create([
                         ...$filteredWinOrDrawData,
                         'season_id' => $this->seasonId
                     ]);
