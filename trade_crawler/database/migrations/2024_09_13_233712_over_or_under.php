@@ -13,13 +13,15 @@ return new class extends Migration
     {
         Schema::create('over_or_unders', function (Blueprint $table): void {
             $table->id();
-            $table->string('season_id');
+            $table->unsignedBigInteger('season_id');
             $table->unsignedInteger('matchday_id');
             $table->string('home');
             $table->string('away');
             $table->decimal('over', 5, 2);
             $table->decimal('under', 5, 2);
             $table->unsignedTinyInteger('result');
+            $table->unsignedBigInteger('team_id')->nullable();
+            $table->unsignedBigInteger('matches_id')->nullable();
             $table->timestamps();
         });
     }

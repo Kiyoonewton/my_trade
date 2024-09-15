@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\DB;
+
 class MatchdayDataClass
 {
     protected $matchday;
@@ -87,6 +89,15 @@ class MatchdayDataClass
     //     ];
     // }
 
+    protected function addMatchId(string $team1, string $team2)
+    {
+        $matches = DB::table('matches')->get();
+        foreach ($matches as $match) {
+            if ($match->team1 === $team1 || $match->team1 === $team2 && $match->team2 === $team1 || $match->team2 === $team2) {
+                return $match->uuid;
+            }
+        }
+    }
     public function getOverOrUnderMatchday(): array
     {
         $total = collect($this->odds)->map(function ($odd) {
@@ -100,6 +111,7 @@ class MatchdayDataClass
                     'home' => $odd["teams"]["home"]["name"],
                     'away' => $odd["teams"]["away"]["name"],
                     "matchday_id" => (int) substr($this->data["queryUrl"], strrpos($this->data["queryUrl"], '/') + 1),
+                    'match_id' => $this->addMatchId($odd["teams"]["home"]["name"], $odd["teams"]["away"]["name"])
                 ];
             })->values();
         })->flatten(1);
