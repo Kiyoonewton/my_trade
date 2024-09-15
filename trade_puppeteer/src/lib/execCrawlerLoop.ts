@@ -2,21 +2,22 @@ import curl from "./curl.js";
 import { redisClient } from "../db/redis.js";
 
 export async function execCrawlerLoop(totalRoundMissed: number) {
-  const iterations = [3, 7, 8];
+  // const iterations = [3, 7, 8];
+  const iterations = [7];
   const totalOperations = totalRoundMissed * iterations.length; // Total number of operations
   let completedOperations = 0;
 
   try {
-    for (let index = 0; index < totalRoundMissed; index++) {
+    for (let index = totalRoundMissed; index >= 3; index--) {
       for (const item of iterations) {
-        await curl({ vflId: item, position: 3                + index });
+        await curl({ vflId: item, position: index });
 
         completedOperations++;
 
         console.log(
-          `Progress .... ${Math.round(
-            (completedOperations / totalOperations) * 100,
-          )}%`,
+          `On -> ${index}, Progress .... ${Math.round(
+            (completedOperations / totalOperations) * 100
+          )}%`
         );
       }
     }

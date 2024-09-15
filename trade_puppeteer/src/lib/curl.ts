@@ -12,12 +12,11 @@ export default async function curl({
     const seasonKey = await fetchSeasonId({ vflId, position });
     const crawler = await fetchCrawler({
       seasonId: seasonKey?.seasonId,
-      vflId,
     });
     if (crawler) {
       console.log(crawler);
     } else {
-      console.log("Failed --->", position - 2, vflId);
+      console.log("Failed --->", position);
     }
   } catch (error) {
     console.log("error", error);

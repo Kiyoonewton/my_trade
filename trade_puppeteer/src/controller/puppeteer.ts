@@ -20,7 +20,7 @@ export const fetchSeasonId = async ({
   });
   const page = await browser.newPage();
   await page.setUserAgent(
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
   );
 
   await page.setExtraHTTPHeaders({
@@ -42,14 +42,14 @@ export const fetchSeasonId = async ({
   if (bunPathHandle) {
     await bunPathHandle.click();
   }
-  await sleep(2000);
+  await sleep(2500);
 
   const achivePathHandle = await page.$(achivePath);
   if (achivePathHandle) {
     await achivePathHandle.click();
   }
 
-  await sleep(2000);
+  await sleep(2500);
 
   if (position > 20) {
     const clickIntervals = [30, 60];
@@ -66,7 +66,7 @@ export const fetchSeasonId = async ({
       if (buttonPathHandle) {
         await buttonPathHandle.click();
         if (i < clicks - 1) {
-          await sleep(500);
+          await sleep(1000);
         }
       }
     }

@@ -11,9 +11,10 @@ if (process.argv.length === 2) {
   const anHourAnd52SecsInMs = 6720000;
   const totalRoundMissed =
     Math.floor(minusTimestampFromNewDate / anHourAnd52SecsInMs) + 1; // plus 1 for the 13 or 14 matches diff of VFEL
-  console.log("Total round(s) missed:", totalRoundMissed);
+  const roundMissedPossible =  totalRoundMissed > 85 ? 85 : totalRoundMissed;
+  console.log("Total round(s) missed:", roundMissedPossible);
   if (totalRoundMissed >= 1) {
-    await execCrawlerLoop(totalRoundMissed);
+    await execCrawlerLoop(roundMissedPossible);
   } else {
     console.log("Please wait for new season to be completed");
   }

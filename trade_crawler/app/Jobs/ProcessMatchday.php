@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\OverOrUnder;
+use App\Models\Season;
 use App\Services\MatchdayDataClass;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -76,6 +77,13 @@ class ProcessMatchday implements ShouldQueue
             });
 
             $results = $results->merge($createdEntries);
+        }
+
+        $existingSeason = Season::where('seasonId', $this->seasonId)->first();
+        if (!$existingSeason) {
+            Season::create([
+                'seasonId' => $this->seasonId
+            ]);
         }
         return $results->all();
     }

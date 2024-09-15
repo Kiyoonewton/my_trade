@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('win_or_draws', function (Blueprint $table): void {
             $table->id();
-            $table->unsignedBigInteger('season_id');
+            $table->string('season_id');
             $table->unsignedInteger('matchday_id');
             $table->string('home');
             $table->string('away');
