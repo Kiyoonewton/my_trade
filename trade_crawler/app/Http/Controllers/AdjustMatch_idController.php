@@ -24,7 +24,7 @@ class AdjustMatch_idController extends Controller
                     $query->where('away', $match->team1)  // Reverse team1 and team2
                         ->where('home', $match->team2);
                 })
-                ->update(['match_id' => $match->uuid]);
+                ->update(['match_id' => $match->id]);
         }
     }
 
@@ -76,3 +76,41 @@ class AdjustMatch_idController extends Controller
         //
     }
 }
+
+
+// 003
+// 004
+// 005
+// 007
+// 008
+// 012
+// 014
+// 021
+// 026
+// 030
+// 031
+// 033
+// 034
+// 036
+// 037
+// 039
+// 052
+// 053
+// 060
+// 063
+// 071
+// 078
+// 079
+// 080
+// 083
+// 088
+// 090
+// 095
+// 099
+// 101
+// 103
+// 104
+// 109
+// 111
+// 115
+// 116
