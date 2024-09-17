@@ -93,7 +93,7 @@ class MatchdayDataClass
     {
         $matches = DB::table('matches')->get();
         foreach ($matches as $match) {
-            if ($match->team1 === $team1 || $match->team1 === $team2 && $match->team2 === $team1 || $match->team2 === $team2) {
+            if ($match->team1 === $team1 && $match->team2 === $team2 || $match->team1 === $team2 && $match->team2 === $team1) {
                 return $match->id;
             }
         }
