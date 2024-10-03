@@ -98,16 +98,22 @@ class MatchdayDataClass
             }
         }
     }
+
     public function getOverOrUnderMatchday(): array
     {
         $total = collect($this->odds)->map(function ($odd) {
             return collect($odd["market"])->filter(function ($marketOdd) {
                 return $marketOdd["id"] === 18 && $marketOdd["specifiers"] === "total=2.5";
             })->map(function ($marketType) use ($odd) {
+                $over_data = $marketType["outcome"][0]["odds"];
+                $under_data = $marketType["outcome"][1]["odds"];
+                $result_data = $marketType["outcome"][0]["result"];
                 return [
-                    'over' => $marketType["outcome"][0]["odds"],
-                    'under' => $marketType["outcome"][1]["odds"],
-                    'result' => $marketType["outcome"][0]["result"],
+                    'over' => $over_data,
+                    'under' => $under_data,
+                    'result' => $result_data,
+                    'booker_prediction' => $over_data < $under_data ?
+                        $marketType["outcome"][0]["result"] : $marketType["outcome"][1]["result"],
                     'home' => $odd["teams"]["home"]["name"],
                     'away' => $odd["teams"]["away"]["name"],
                     "matchday_id" => (int) substr($this->data["queryUrl"], strrpos($this->data["queryUrl"], '/') + 1),

@@ -60,6 +60,7 @@ class ProcessMatchday implements ShouldQueue
                     ['matchday_id', '=', $i],
                 ])->delete();
             }
+            // return $this->fetchData($i);
 
             $filterMatchdayDataService = new MatchdayDataClass($this->fetchData($i));
             $filteredWinOrDrawDatas = $filterMatchdayDataService->getOverOrUnderMatchday();

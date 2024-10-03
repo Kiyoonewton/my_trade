@@ -20,8 +20,8 @@ return new class extends Migration
             $table->decimal('over', 5, 2);
             $table->decimal('under', 5, 2);
             $table->unsignedTinyInteger('result');
-            $table->unsignedBigInteger('team_id')->nullable();
-            $table->unsignedBigInteger('matches_id')->nullable();
+            $table->unsignedTinyInteger('booker_prediction');
+            $table->unsignedBigInteger('match_id')->nullable();
             $table->timestamps();
         });
     }

@@ -11,7 +11,7 @@ class WinOrDraw extends Model
     use HasFactory;
     protected $table = 'win_or_draws';
 
-    protected $fillable = ['season_id', 'matchday_id', 'home', 'away', 'over', 'under', 'result', 'match_id'];
+    protected $fillable = ['season_id', 'matchday_id', 'home', 'away', 'over', 'under', 'result', 'booker_prediction', 'match_id'];
 
     public function season(): BelongsTo
     {
