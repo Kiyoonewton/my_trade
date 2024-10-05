@@ -2,7 +2,7 @@ import { createClient } from 'redis';
 
 // Create a Redis client
 export const redisClient = createClient({
-  url: 'redis://127.0.0.1:6379',  // Default Redis port
+  url: 'redis://127.0.0.1:6379',
 });
 
 redisClient.on('connect', () => {
