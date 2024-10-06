@@ -60,9 +60,12 @@ class ProcessMatchday implements ShouldQueue
                     ['matchday_id', '=', $i],
                 ])->delete();
             }
+            // return $this->fetchData($i);
 
             $filterMatchdayDataService = new MatchdayDataClass($this->fetchData($i));
             $filteredWinOrDrawDatas = $filterMatchdayDataService->getOverOrUnderMatchday();
+            // return $filteredWinOrDrawDatas;
+
             $createdEntries = collect($filteredWinOrDrawDatas)->map(function ($filteredWinOrDrawData) {
                 $created = OverOrUnder::create([
                     ...$filteredWinOrDrawData,

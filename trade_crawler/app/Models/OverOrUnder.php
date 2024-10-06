@@ -10,7 +10,7 @@ class OverOrUnder extends Model
 {
     use HasFactory;
     protected $table = 'over_or_unders';
-    protected $fillable = ['season_id', 'matchday_id', 'home', 'away', 'over', 'under', 'result'];
+    protected $fillable = ['season_id', 'matchday_id', 'home', 'away', 'over', 'under', 'result', 'booker_prediction', 'match_id'];
 
     public function season(): BelongsTo
     {

@@ -1,4 +1,4 @@
-import { redisClient } from "./db/redis.js";
+import { redisClient } from "./lib/redis.js";
 import curl from "./lib/curl.js";
 import { execCrawlerLoop } from "./lib/execCrawlerLoop.js";
 
@@ -11,7 +11,7 @@ if (process.argv.length === 2) {
   const anHourAnd52SecsInMs = 6720000;
   const totalRoundMissed =
     Math.floor(minusTimestampFromNewDate / anHourAnd52SecsInMs) + 1; // plus 1 for the 13 or 14 matches diff of VFEL
-  const roundMissedPossible =  totalRoundMissed > 85 ? 85 : totalRoundMissed;
+  const roundMissedPossible = totalRoundMissed > 85 ? 85 : totalRoundMissed;
   console.log("Total round(s) missed:", roundMissedPossible);
   if (totalRoundMissed >= 1) {
     await execCrawlerLoop(roundMissedPossible);

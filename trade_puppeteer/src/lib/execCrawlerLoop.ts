@@ -1,5 +1,5 @@
 import curl from "./curl.js";
-import { redisClient } from "../db/redis.js";
+import { redisClient } from "./redis.js";
 
 export async function execCrawlerLoop(totalRoundMissed: number) {
   // const iterations = [3, 7, 8];
