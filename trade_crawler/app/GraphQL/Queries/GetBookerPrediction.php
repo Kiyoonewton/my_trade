@@ -27,10 +27,10 @@ class GetBookerPrediction
     return collect($this->teams)->map(function ($team) use ($index, $type, $seasonId) {
       $results = OverOrUnder::where('season_id', $seasonId)->where(function ($query) use ($team) {
         $query->where('home', $team)->orWhere('away', $team);
-      })->whereBetween('matchday_id', $this->matchDays[$index])->where('booker_prediction', $type)->get(['home', 'away']);
+      })->whereBetween('matchday_id', $this->matchDays[$index])->where('booker_prediction', $type)->get(['home', 'away', 'matchday_id']);
 
       $matches = $results->map(function ($match) {
-        return [$match->home, $match->away];
+        return [$match->home, $match->away, $match->matchday_id];
       });
       return [
         'matches' => $matches->all(),
@@ -56,22 +56,55 @@ class GetBookerPrediction
     $end = $args['end'];
 
     $seasons = $this->getSeasonId($start, $end);
-    $season_id = $seasons[9];
-    $matches = $this->getTeams(0, $type, $season_id);
+    $seasonLength = count($seasons);
 
-    return collect($matches)->map(function ($matches) use ($type, $season_id) {
-      $results = collect($matches['matches'])->map(function ($match) use ($season_id) {
-        return OverOrUnder::where('season_id', $season_id)->whereBetween('matchday_id', $this->matchDays[1])->whereIn('home', [$match[0], $match[1]])->whereIn('away', [$match[0], $match[1]])->pluck('result')->first();
-      });
+    $allResults = [];
 
-      //   //       ->get(['home', 'away', 'result'])   // Retrieve only the fields you need
-      //   //       ->map(function ($item) {
-      //   //           return $item->toArray();        // Convert each model instance to an array
-      //   //       });
-      //   // })->flatten(1)->all(),
+    for ($i = 0; $i < $seasonLength; $i++) {
+      $season_id = $seasons[$i];
 
-      $success = $results->contains($type) ? 'success' : 'fail';
-      return  ['match' => $success,  'count' => $matches['count']];
-    });
+      for ($j = 0; $j < count($this->matchDays); $j++) {
+        $matches = [];
+        $matchDays_array = [];
+
+        if ($i === 0 && $j === 0) {
+          $matches = $this->getTeams(0, $type, $seasons[$i]);
+          $matchDays_array = $this->matchDays[1];
+        }
+        if ($i !== 0 && $j === 0) {
+          $matches = $this->getTeams(1, $type, $seasons[$i - 1]);
+          $matchDays_array = $this->matchDays[0];
+        }
+        if ($i !== 0 && $j === 1) {
+          $matches = $this->getTeams(0, $type, $seasons[$i]);
+          $matchDays_array = $this->matchDays[1];
+        }
+
+        //return ['seasons' => $seasons, 'seasons2' => $seasons[$i - 1], 'season' => $season_id, 'matchDays_array' => $matchDays_array, 'matches' => $matches, 'other' => [$i, $j]];
+
+        $results = collect($matches)->map(function ($matchSet) use ($type, $season_id, $matchDays_array) {
+          $matchResults = collect($matchSet['matches'])->map(function ($match) use ($season_id, $matchDays_array) {
+            return OverOrUnder::where('season_id', $season_id)
+              ->whereBetween('matchday_id', $matchDays_array)
+              ->whereIn('home', [$match[0], $match[1]])
+              ->whereIn('away', [$match[0], $match[1]])
+              // ->get(['home', 'away', 'result'])
+              // ->map(function ($item) {
+              // return $item->toArray();        // Convert each model instance to an array
+              // });
+              // })->flatten(1)->all();
+              ->pluck('result')->first();
+          });
+
+          $success = $matchResults->contains($type) ? 'success' : 'fail';
+
+          return ['match' => $success, 'count' => $matchSet['count']];
+        });
+
+        $allResults[] = ['result' => $results->all(), 'number' => $i + $start];
+      }
+    }
+
+    return $allResults;
   }
 }
