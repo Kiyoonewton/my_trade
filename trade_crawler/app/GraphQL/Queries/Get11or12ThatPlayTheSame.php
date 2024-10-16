@@ -27,7 +27,7 @@ class Get11or12ThatPlayTheSame
     return collect($this->teams)->map(function ($team) use ($index, $type, $seasonId) {
       $results = OverOrUnder::where('season_id', $seasonId)->where(function ($query) use ($team) {
         $query->where('home', $team)->orWhere('away', $team);
-      })->whereBetween('matchday_id', $this->matchDays[$index])->where('booker_prediction', $type)->get(['home', 'away', 'matchday_id']);
+      })->whereBetween('matchday_id', $this->matchDays[$index])->where('result', $type)->get(['home', 'away', 'matchday_id']);
 
       $matches = $results->map(function ($match) {
         return [$match->home, $match->away, $match->matchday_id];
@@ -117,8 +117,8 @@ class Get11or12ThatPlayTheSame
         }
 
         if ($i !== 0 && $j === 0) {
-          $matches = $this->getTeams($j, $type, $seasons[$i]);
-          $matchDays_array = $this->matchDays[1];
+          $matches = $this->getTeams(1, $type, $seasons[$i - 1]);
+          $matchDays_array = $this->matchDays[0];
         }
         // if ($i !== 0 && $j === 0) {
         //   $matches = $this->getTeams(0, $type, $seasons[$i]);
@@ -133,13 +133,13 @@ class Get11or12ThatPlayTheSame
 
         if ($i !== 0 && $j === 0) {
           $results = $this->processMatches($matches, $type, $seasons[$i], $matchDays_array);
-        } else if ($i === 0 && $j === 1) {
+        } else if ($j === 1) {
           $results =  $this->processMatches($matches, $type, $seasons[$i], $matchDays_array);
         } else {
           $results = [];
         }
 
-        $allResults[] = ['result' => $results, 'number' => $i + $start];
+        $allResults[] = ['result' => $results, 'number' => $i + $start, 'season' => $seasons[$i]];
       }
     }
 
