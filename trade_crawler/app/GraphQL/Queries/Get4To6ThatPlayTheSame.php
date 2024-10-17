@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
  * 
  */
 
-class Get11or12ThatPlayTheSame
+class Get4To6ThatPlayTheSame
 {
   protected string $season_id = "2879263";
   protected array $matchDays = [[1, 15], [16, 30]];
@@ -84,7 +84,7 @@ class Get11or12ThatPlayTheSame
 
       $success = $matchResults->contains($type) ? 'success' : 'fail';
 
-      return ['match' => $success, 'count' => $matchSet['count'], 'matches' => $matchSet['matches']];
+      return ['match' => $matchResults, 'count' => $matchSet['count']];
     });
   }
 
@@ -120,6 +120,16 @@ class Get11or12ThatPlayTheSame
           $matches = $this->getTeams(1, $type, $seasons[$i - 1]);
           $matchDays_array = $this->matchDays[0];
         }
+        // if ($i !== 0 && $j === 0) {
+        //   $matches = $this->getTeams(0, $type, $seasons[$i]);
+        //   $matchDays_array = $this->matchDays[1];
+        // }
+        // if ($i !== 0 && $j === 1) {
+        //   $matches = $this->getTeams(1, $type, $seasons[$i + 1]);
+        //   $matchDays_array = $this->matchDays[0];
+        // }
+
+        //return ['seasons' => $seasons, 'seasons2' => $seasons[$i - 1], 'season' => $season_id, 'matchDays_array' => $matchDays_array, 'matches' => $matches, 'other' => [$i, $j]];
 
         if ($i !== 0 && $j === 0) {
           $results = $this->processMatches($matches, $type, $seasons[$i], $matchDays_array);
@@ -129,12 +139,7 @@ class Get11or12ThatPlayTheSame
           $results = [];
         }
 
-        $updatedData = collect($results)->map(function ($item) {
-          unset($item['matches']);
-          return $item;
-        });
-
-        $allResults[] = ['result' => $updatedData, 'number' => $i + $start, 'season' => $seasons[$i]];
+        $allResults[] = ['result' => $results, 'number' => $i + $start, 'season' => $seasons[$i]];
       }
     }
 

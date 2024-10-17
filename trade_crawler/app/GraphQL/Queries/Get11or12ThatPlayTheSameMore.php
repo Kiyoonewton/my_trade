@@ -120,6 +120,16 @@ class Get11or12ThatPlayTheSame
           $matches = $this->getTeams(1, $type, $seasons[$i - 1]);
           $matchDays_array = $this->matchDays[0];
         }
+        // if ($i !== 0 && $j === 0) {
+        //   $matches = $this->getTeams(0, $type, $seasons[$i]);
+        //   $matchDays_array = $this->matchDays[1];
+        // }
+        // if ($i !== 0 && $j === 1) {
+        //   $matches = $this->getTeams(1, $type, $seasons[$i + 1]);
+        //   $matchDays_array = $this->matchDays[0];
+        // }
+
+        //return ['seasons' => $seasons, 'seasons2' => $seasons[$i - 1], 'season' => $season_id, 'matchDays_array' => $matchDays_array, 'matches' => $matches, 'other' => [$i, $j]];
 
         if ($i !== 0 && $j === 0) {
           $results = $this->processMatches($matches, $type, $seasons[$i], $matchDays_array);
@@ -128,6 +138,16 @@ class Get11or12ThatPlayTheSame
         } else {
           $results = [];
         }
+
+        $secondResult = collect($results)->map(function ($item) use ($seasons, $type, $i) {
+          $secondResult = [];
+          if ($item['match'] === 'fail') {
+            $item['match']->map(function ($matchList) use ($seasons, $type, $i) {
+              $secondResult[] = $this->processMatches($matchList, $type, $seasons[$i + 1], $this->matchDays[0]);
+            });
+          }
+          return $secondResult;
+        });
 
         $updatedData = collect($results)->map(function ($item) {
           unset($item['matches']);
