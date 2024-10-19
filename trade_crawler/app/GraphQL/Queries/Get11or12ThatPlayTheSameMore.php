@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
  * 
  */
 
-class Get11or12ThatPlayTheSame
+class Get11or12ThatPlayTheSameMore
 {
   protected string $season_id = "2879263";
   protected array $matchDays = [[1, 15], [16, 30]];
