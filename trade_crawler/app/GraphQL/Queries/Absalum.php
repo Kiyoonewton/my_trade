@@ -142,14 +142,14 @@ class Absalum
 
     for ($j = $start; $j < $end; $j++) {
       $nextGame1 = $this->getTeams(0, 0, $this->getSeasonId($j + 1)->first());
-      $nextGame2 = $this->processMatches($nextGame1, 0, $this->getSeasonId($j + 2)->first(), $this->matchDays[0]);
-      $nextGame3 = $this->processMatches($nextGame2, 0, $this->getSeasonId($j + 3)->first(), $this->matchDays[0]);
-      $nextGame4 = $this->processMatches($nextGame3, 0, $this->getSeasonId($j + 4)->first(), $this->matchDays[0],);
-      $nextGame5 = $this->processMatches($nextGame4, 0, $this->getSeasonId($j + 5)->first(), $this->matchDays[0],);
-      $nextGame6 = $this->processMatches($nextGame5, 0, $this->getSeasonId($j + 6)->first(), $this->matchDays[0],);
-      $nextGame7 = $this->processMatches($nextGame6, 0, $this->getSeasonId($j + 7)->first(), $this->matchDays[0],);
-      $nextGame8 = $this->processMatches($nextGame7, 0, $this->getSeasonId($j + 8)->first(), $this->matchDays[0],);
-      $nextGame9 = $this->processMatches($nextGame8, 0, $this->getSeasonId($j + 9)->first(), $this->matchDays[0],);
+      // $nextGame2 = $this->processMatches($nextGame1, 0, $this->getSeasonId($j + 2)->first(), $this->matchDays[0]);
+      // $nextGame3 = $this->processMatches($nextGame2, 0, $this->getSeasonId($j + 3)->first(), $this->matchDays[0]);
+      // $nextGame4 = $this->processMatches($nextGame3, 0, $this->getSeasonId($j + 4)->first(), $this->matchDays[0],);
+      // $nextGame5 = $this->processMatches($nextGame4, 0, $this->getSeasonId($j + 5)->first(), $this->matchDays[0],);
+      // $nextGame6 = $this->processMatches($nextGame5, 0, $this->getSeasonId($j + 6)->first(), $this->matchDays[0],);
+      // $nextGame7 = $this->processMatches($nextGame6, 0, $this->getSeasonId($j + 7)->first(), $this->matchDays[0],);
+      // $nextGame8 = $this->processMatches($nextGame7, 0, $this->getSeasonId($j + 8)->first(), $this->matchDays[0],);
+      // $nextGame9 = $this->processMatches($nextGame8, 0, $this->getSeasonId($j + 9)->first(), $this->matchDays[0],);
       // $nextGame10 = $this->processMatches($nextGame9, 0, $this->getSeasonId($j + 10)->first(), $this->matchDays[0],);
       // $nextGame11 = $this->processMatches($nextGame10, 0, $this->getSeasonId($j + 11)->first(), $this->matchDays[0],);
       // $nextGame12 = $this->processMatches($nextGame11, 0, $this->getSeasonId($j + 12)->first(), $this->matchDays[0],);
@@ -157,26 +157,36 @@ class Absalum
 
       $result = [];
 
-      for ($i = 0; $i < 16; $i++) {
-        if (in_array($nextGame5[$i]['count'], [1, 2, 3, 4, 5, 6])) {
-          $result[] = [
-            'first' => $nextGame1[$i]['count'],
-            'second' => $nextGame2[$i]['count'],
-            'third' => $nextGame3[$i]['count'],
-            'fourth' => $nextGame4[$i]['count'],
-            'fifth' => $nextGame5[$i]['count'],
-            'sixth' => $nextGame6[$i]['count'],
-            'seventh' => $nextGame7[$i]['count'],
-            'eight' => $nextGame8[$i]['count'],
-            // 'nine' => $nextGame9[$i]['count'],
-            // 'ten' => $nextGame10[$i]['count'],
-            // 'eleven' => $nextGame11[$i]['count'],
-            // 'twelve' => $nextGame12[$i]['count'],
-            // 'thirteen' => $nextGame13[$i]['count'],
-          ];
-          print_r($result,);
-          // } else {
-        }
+      for ($i = 0; $i < 1; $i++) {
+        // if (
+        //   ($nextGame7[$i]['count'] === 2 &&
+        //     $nextGame8[$i]['count'] === 2 &&
+        //     $nextGame5[$i]['count'] === 2 &&
+        //     $nextGame6[$i]['count'] === 2) ||
+        //   ($nextGame6[$i]['count'] === 2 &&
+        //     $nextGame7[$i]['count'] === 2 &&
+        //     $nextGame4[$i]['count'] === 2 &&
+        //     $nextGame5[$i]['count'] === 2)
+        //   // || $nextGame4[$i]['count'] === 2
+        // ) {
+        $result[] = [
+          'first' => $nextGame1[$i]['count'],
+          // 'second' => $nextGame2[$i]['count'],
+          // 'third' => $nextGame3[$i]['count'],
+          // 'fourth' => $nextGame4[$i]['count'],
+          // 'fifth' => $nextGame5[$i]['count'],
+          // 'sixth' => $nextGame6[$i]['count'],
+          // 'seventh' => $nextGame7[$i]['count'],
+          // 'eight' => $nextGame8[$i]['count'],
+          // 'nine' => $nextGame9[$i]['count'],
+          // 'ten' => $nextGame10[$i]['count'],
+          // 'eleven' => $nextGame11[$i]['count'],
+          // 'twelve' => $nextGame12[$i]['count'],
+          // 'thirteen' => $nextGame13[$i]['count'],
+        ];
+        print_r($result,);
+        // } else {
+        // }
       }
       print_r($j + 1);
 

@@ -116,7 +116,7 @@ class Understand
         // 'ten' => $nextGame9[$i]['count'],
         // ];
       }
-
+      dd($teams);
       $total[] = ['result' => $result, 'number' => $j + 1, 'season' => $this->getSeasonId($j + 1)->first()];
       // $total[] = ['result' => in_array(true, $result), 'number' => $j + 1, 'season' => $this->getSeasonId($j + 1)->first()];
     }

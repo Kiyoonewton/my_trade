@@ -14,15 +14,25 @@ services:
     depends_on:
       - mongodb
 
+  mysqldb:
+    image: mysql:8.0
+    container_name: mysqldb
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+    ports:
+      - "33066:3306"
+    volumes:
+      - ./db_mysqlDb:/var/lib/mysql
+
   # trade_webserver:
   #   image: nginx:latest
   #   container_name: trade_nginx
   #   ports:
   #     - "80:80"
   #   volumes:
-      # - ./trade_webserver/nginx.conf:/etc/nginx/nginx.conf:ro
-      # - ./trade_webserver/conf.d:/etc/nginx/conf.d:ro
-      # - ./trade_webserver/snippets/fastcgi-php.conf:/etc/nginx/snippets/fastcgi-php.conf
+  # - ./trade_webserver/nginx.conf:/etc/nginx/nginx.conf:ro
+  # - ./trade_webserver/conf.d:/etc/nginx/conf.d:ro
+  # - ./trade_webserver/snippets/fastcgi-php.conf:/etc/nginx/snippets/fastcgi-php.conf
   #   depends_on:
   #     - trade_crawler
 
@@ -39,25 +49,25 @@ services:
   #   env_file:
   #     - ./trade_crawler/.env.production
   #   command: php artisan queue:work --tries=3 --timeout=90
-    
-  mongodb:
-    image: mongo:latest
-    container_name: trade_mongodb
-    ports:
-      - "27017:27017"
-    env_file:
-      - ./trade_crawler/.env.production
-    volumes:
-      - ./db/mongodb:/data/db
 
-  redisdb:
-    image: redis:latest
-    container_name: trade_redisdb
-    ports:
-      - "6379:6379"
-    volumes:
-      - ./db/redisdb:/data
-  
+  # mongodb:
+  #   image: mongo:latest
+  #   container_name: trade_mongodb
+  #   ports:
+  #     - "27017:27017"
+  #   env_file:
+  #     - ./trade_crawler/.env.production
+  #   volumes:
+  #     - ./db/mongodb:/data/db
+
+  # redisdb:
+  #   image: redis:latest
+  #   container_name: trade_redisdb
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - ./db/redisdb:/data
+
   # trade_puppeteer:
   #   build: ./trade_puppeteer
   #   container_name: trade_puppeteer
