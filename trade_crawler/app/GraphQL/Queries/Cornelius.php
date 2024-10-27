@@ -4,28 +4,36 @@
 namespace App\GraphQL\Queries;
 
 use App\Models\OverOrUnder;
-use App\Trait\TeamArrangerTrait;
+use App\Models\TeamArranger;
+use App\Trait\TeamArrangerTrait as TraitTeamArrangerTrait;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class Cornelius
 {
-  use TeamArrangerTrait;
+  use TraitTeamArrangerTrait;
 
-  protected array $teams = ['Liverpool', 'Manchester Reds', 'Chelsea'];
-  protected array $teamsCollections = ['Bournemouth', 'Burnley', 'Chelsea', 'Crystal Palace', 'Everton', 'Leicester', 'Liverpool', 'London Guns', 'Manchester Blue', 'Manchester Reds', 'Newcastle', 'Southampton', 'Tottenham', 'Watford', 'West Ham', 'Wolverhampton'];
-
-  protected function arrangeTeam()
+  protected array $teams = ["Bournemouth", "Burnley", "Chelsea"];
+  protected function arrangeTeam($num)
   {
+    // Log::info('message',$this->getThreeTeams(1));
     $result = [];
     for ($i = 0; $i < 3; $i++) {
       for ($j = $i + 1; $j < 3; $j++) {
         $result[] =  [
-          $this->teams[$i],
-          $this->teams[$j]
+          $this->getThreeTeams($num)[0][$i],
+          $this->getThreeTeams($num)[0][$j]
         ];
       }
     }
     return ['matches' => $result];
+  }
+
+  protected function getThreeTeams($id)
+  {
+    return TeamArranger::where('id', $id)->get(['team1', 'team2', 'team3'])->map(function ($team) {
+      return [$team->team1, $team->team2, $team->team3];
+    })->all();
   }
 
   protected function getSeasonId(int $row_number)
@@ -69,37 +77,34 @@ class Cornelius
     }
     return $count;
   }
-  public function __invoke()
+  public function __invoke($_, $args)
   {
-    // $start = $args['start'];
-    // $end = $args['end'];
+    $start = $args['start'];
+    $end = $args['end'];
 
-    // $num = 0;
+    $num = 0;
 
-    // for ($j = $start; $j < $end; $j++) {
-    //   $team = $this->arrangeTeam();
+    for ($j = $start; $j < $end; $j++) {
+      for ($l = 1; $l < 561; $l++) {
+        $team = $this->arrangeTeam($l);
 
-    //   $total1 = $this->processMatches([$team], $this->getSeasonId($j + 1)->first(), [1, 30])->first();
-    //   $total2 = $this->processMatches([$team], $this->getSeasonId($j + 2)->first(), [1, 30])->first();
-    //   $total3 = $this->processMatches([$team], $this->getSeasonId($j + 3)->first(), [1, 30])->first();
+        $total1 = $this->processMatches([$team], $this->getSeasonId($j + 1)->first(), [1, 30])->first();
+        $total2 = $this->processMatches([$team], $this->getSeasonId($j + 2)->first(), [1, 30])->first();
+        $total3 = $this->processMatches([$team], $this->getSeasonId($j + 3)->first(), [1, 30])->first();
 
-    //   $count = $this->getCount($total1, $total2);
-    //   if ($count === 6) {
-    //     $count1 = $this->getCount($total2, $total3);
-    //     echo "$j, " . ($count1 === 6 ? '6 ==========> Loss' : '6 ==========> Win') . ($count1 === 0 ? ', 0 ==========> Loss' : ', 0 ==========> Win') ."\n";
-    //   } elseif ($count === 0) {
-    //     $count2 = $this->getCount($total2, $total3);
-    //     echo "$j, " . ($count2 === 0 ? '6 ==========> Loss' : '6 ==========> Win') . ($count2 === 0 ? ', 0 ==========> Loss' : ', 0 ==========> Win') . "\n";
-    //   } else {
-    //     echo "$j," . " $count" . "\n";
-    //   }
-    //   $count = 0;
-    // }
-
-    $groupings = $this->generate560Groupings($this->teamsCollections);
-        
-        // Optionally log final result
-        echo 'Total unique groupings generated: ' . count($groupings) . PHP_EOL;
-        return $groupings;
+        $count = $this->getCount($total1, $total2);
+        if ($count === 6) {
+          $count1 = $this->getCount($total2, $total3);
+          echo "season $j, " ."team $l " .  ($count1 === 6 ? '6 ==========> Loss' : '6 ==========> Win') . ($count1 === 0 ? ', 0 ==========> Loss' : ', 0 ==========> Win') . "\n";
+        } elseif ($count === 0) {
+          $count2 = $this->getCount($total2, $total3);
+          echo "season $j, " . "team $l " .  ($count2 === 6 ? '6 ==========> Loss' : '6 ==========> Win') . ($count2 === 0 ? ', 0 ==========> Loss' : ', 0 ==========> Win') . "\n";
+        } else {
+          echo "season $j, " . "team $l " .  " $count" . "\n";
+        }
+        $count = 0;
+      }
+    }
+    // return $this->getThreeTeams(1);
   }
 }
