@@ -5,7 +5,7 @@ type Query {
     oneSeason(seasonId: ID! @eq): Season @find
     allSeason: [Season!]! @all
     allMatchDays: [Details!]! @all
-    getBookerPrediction (orderBy: _ @orderBy(columns:["prediction_count"])): [BookerPrediction!]! @paginate
+    # getBookerPrediction (orderBy: _ @orderBy(columns:["prediction_count"])): [BookerPrediction!]! @paginate
 }
 
 type BookerPrediction {

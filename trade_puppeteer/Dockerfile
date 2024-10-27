@@ -47,4 +47,4 @@ COPY . .
 
 RUN npx tsc --build
 
-CMD [ "node", "dist/app.js" ]
+CMD ["tail", "-f", "/dev/null"]

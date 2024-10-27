@@ -21,15 +21,15 @@ if (process.argv.length === 2) {
 } else {
   //process from the terminal
   const args = process.argv.slice(2);
-
   if (Number(args[0]) >= 1) {
-    if ((args.length = 2)) {
+    if ((args.length > 1)) {
       curl({ vflId: Number(args[1]), position: 2 + Number(args[0]) });
     } else {
-      const iterations = [3, 7, 8];
-      iterations.map((item) =>
-        curl({ vflId: item, position: 2 + Number(args[0]) }),
-      );
+      await execCrawlerLoop(Number(args[0]));
+      // const iterations = [3, 7, 8];
+      // iterations.map((item) =>
+      //   curl({ vflId: item, position: 2 + Number(args[0]) }),
+      // );
     }
   } else {
     console.log("Please input >= 1");

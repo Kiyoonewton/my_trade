@@ -26,4 +26,4 @@ trade_crawler/.vscode
 trade_crawler/local
 trade_crawler/production
 
-db
+db*

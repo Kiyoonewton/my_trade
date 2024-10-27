@@ -4,11 +4,15 @@
 namespace App\GraphQL\Queries;
 
 use App\Models\OverOrUnder;
+use App\Trait\TeamArrangerTrait;
 use Illuminate\Support\Facades\DB;
 
 class Cornelius
 {
-  protected array $teams = ['Bournemouth', 'Burnley', 'Chelsea'];
+  use TeamArrangerTrait;
+
+  protected array $teams = ['Liverpool', 'Manchester Reds', 'Chelsea'];
+  protected array $teamsCollections = ['Bournemouth', 'Burnley', 'Chelsea', 'Crystal Palace', 'Everton', 'Leicester', 'Liverpool', 'London Guns', 'Manchester Blue', 'Manchester Reds', 'Newcastle', 'Southampton', 'Tottenham', 'Watford', 'West Ham', 'Wolverhampton'];
 
   protected function arrangeTeam()
   {
@@ -22,9 +26,6 @@ class Cornelius
       }
     }
     return ['matches' => $result];
-    // collect($this->teams)->combinations(2)->map(function ($team) {
-    //   return [$team[0], $team[1]];
-    // });
   }
 
   protected function getSeasonId(int $row_number)
@@ -48,46 +49,57 @@ class Cornelius
           })
           ->get(['home', 'away', 'matchday_id', 'over', 'under', 'result'])
           ->map(function ($item) {
-            $home = $item->home;
-            $away = $item->away;
-            $over = $item->over;
-            $under = $item->under;
             $result = $item->result;
-            $matchday_id = $item->matchday_id;
             return $result;
           });
-        // dd($match[0]);
       })->flatten(1)->all();
       return [
-        // 'team' => $matchSet['team'],
         'matches' => $matchResults,
         'count' => collect($matchResults)->count()
       ];
     });
   }
-
-  public function __invoke($_, $args)
+  public function getCount($total1, $total2)
   {
-    $start = $args['start'];
-    $end = $args['end'];
-    $total1 = [];
-    $total2 = [];
-    $num = 0;
+    $count = 0;
+    for ($i = 0; $i < 6; $i++) {
+      if ((collect($total1))->all()['matches'][$i] === (collect($total2))->all()['matches'][$i]) {
+        $count++;
+      }
+    }
+    return $count;
+  }
+  public function __invoke()
+  {
+    // $start = $args['start'];
+    // $end = $args['end'];
 
-    for ($j = $start; $j < $end; $j++) {
-      $total1[] = $this->processMatches([
-        $this->arrangeTeam()
-      ], $this->getSeasonId($j + 1)->first(), [1, 30])->first();
-      $total2[] = $this->processMatches([
-        $this->arrangeTeam()
-      ], $this->getSeasonId($j + 2)->first(), [1, 30])->first();
-      $num = $j;
-    }
-    for ($k = 0; $k < collect($total1)->count(); $k++) {
-      // if (collect($total1)->all()[$k]['matches'] === collect($total2)->all()[$k]['matches']) {
-      print_r(array_diff_assoc(collect($total1)->all()[$k]['matches'], collect($total2)->all()[$k]['matches']));
-      // }
-      // print_r($j + 1);
-    }
+    // $num = 0;
+
+    // for ($j = $start; $j < $end; $j++) {
+    //   $team = $this->arrangeTeam();
+
+    //   $total1 = $this->processMatches([$team], $this->getSeasonId($j + 1)->first(), [1, 30])->first();
+    //   $total2 = $this->processMatches([$team], $this->getSeasonId($j + 2)->first(), [1, 30])->first();
+    //   $total3 = $this->processMatches([$team], $this->getSeasonId($j + 3)->first(), [1, 30])->first();
+
+    //   $count = $this->getCount($total1, $total2);
+    //   if ($count === 6) {
+    //     $count1 = $this->getCount($total2, $total3);
+    //     echo "$j, " . ($count1 === 6 ? '6 ==========> Loss' : '6 ==========> Win') . ($count1 === 0 ? ', 0 ==========> Loss' : ', 0 ==========> Win') ."\n";
+    //   } elseif ($count === 0) {
+    //     $count2 = $this->getCount($total2, $total3);
+    //     echo "$j, " . ($count2 === 0 ? '6 ==========> Loss' : '6 ==========> Win') . ($count2 === 0 ? ', 0 ==========> Loss' : ', 0 ==========> Win') . "\n";
+    //   } else {
+    //     echo "$j," . " $count" . "\n";
+    //   }
+    //   $count = 0;
+    // }
+
+    $groupings = $this->generate560Groupings($this->teamsCollections);
+        
+        // Optionally log final result
+        echo 'Total unique groupings generated: ' . count($groupings) . PHP_EOL;
+        return $groupings;
   }
 }
