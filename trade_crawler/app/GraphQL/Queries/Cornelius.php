@@ -81,24 +81,27 @@ class Cornelius
   {
     $start = $args['start'];
     $end = $args['end'];
-
     $num = 0;
-
+    
     for ($j = $start; $j < $end; $j++) {
+      $seasonId =$this->getSeasonId($j + 1)->first();
       for ($l = 1; $l < 561; $l++) {
         $team = $this->arrangeTeam($l);
 
         $total1 = $this->processMatches([$team], $this->getSeasonId($j + 1)->first(), [1, 30])->first();
         $total2 = $this->processMatches([$team], $this->getSeasonId($j + 2)->first(), [1, 30])->first();
         $total3 = $this->processMatches([$team], $this->getSeasonId($j + 3)->first(), [1, 30])->first();
+        $team1 = $team['matches'][0][0];
+        $team2 = $team['matches'][0][1];
+        $team3 = $team['matches'][1][1];
 
         $count = $this->getCount($total1, $total2);
         if ($count === 6) {
           $count1 = $this->getCount($total2, $total3);
-          echo "season $j, " ."team $l " .  ($count1 === 6 ? '6 ==========> Loss' : '6 ==========> Win') . ($count1 === 0 ? ', 0 ==========> Loss' : ', 0 ==========> Win') . "\n";
+          echo "season $seasonId, " . "team $team1, $team2, $team3 " . "count 6 " . ($count1 === 6 ? '6 ==========> Loss' : '6 ==========> Win') . ($count1 === 0 ? ', 0 ==========> Loss' : ', 0 ==========> Win') . "\n";
         } elseif ($count === 0) {
           $count2 = $this->getCount($total2, $total3);
-          echo "season $j, " . "team $l " .  ($count2 === 6 ? '6 ==========> Loss' : '6 ==========> Win') . ($count2 === 0 ? ', 0 ==========> Loss' : ', 0 ==========> Win') . "\n";
+          echo "season $seasonId, " . "team $team1, $team2, $team3 " . "count 0 " . ($count2 === 0 ? '0 ==========> Loss' : '0 ==========> Win') . ($count2 === 6 ? ', 6 ==========> Loss' : ', 6 ==========> Win') . "\n";
         } else {
           echo "season $j, " . "team $l " .  " $count" . "\n";
         }
@@ -108,3 +111,6 @@ class Cornelius
     // return $this->getThreeTeams(1);
   }
 }
+
+//team team1 team2 team3
+//pick odd "1.60 1.5 "
