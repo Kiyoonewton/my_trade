@@ -20,10 +20,9 @@ return new class extends Migration
             $table->string('team3');
             $table->string('type');
             $table->string('matchday');
-            $table->string('against_outcome');
-            $table->string('same_outcome');
-            $table->string('against_odd');
-            $table->string('same_odd');
+            $table->string('outcome');
+            $table->string('odd');
+            $table->string('result');
             $table->timestamps();
         });
     }
