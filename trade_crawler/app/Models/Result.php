@@ -9,5 +9,5 @@ class Result extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['num', "season_id", "team1", "team2", "team3", "type", "matchday", "outcome", "odd", 'result'];
+    protected $fillable = ['num', "season_id", "team1", "team2", "team3", "type", "matchday", "outcome1", "outcomw2", "odd", 'result'];
 }
