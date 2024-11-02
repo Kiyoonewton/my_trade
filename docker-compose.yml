@@ -19,10 +19,12 @@ services:
     container_name: mysqldb
     environment:
       MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: my_trade
+      MYSQL_ROOT_USER: root
     ports:
       - "33066:3306"
     volumes:
-      - ./db_mysqlDb:/var/lib/mysql
+      - ./db/mysqlDb:/var/lib/mysql
 
   # trade_webserver:
   #   image: nginx:latest
