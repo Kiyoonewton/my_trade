@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('season_id');
             $table->unsignedInteger('num');
+            $table->unsignedInteger('team_num');
             $table->string('team1');
             $table->string('team2');
             $table->string('team3');
@@ -22,6 +23,9 @@ return new class extends Migration
             $table->string('matchday');
             $table->string('outcome1');
             $table->string('outcome2');
+            $table->string('outcome3');
+            $table->string('outcome4');
+            $table->string('final_outcome');
             $table->string('odd');
             $table->string('result');
             $table->timestamps();
