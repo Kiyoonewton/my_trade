@@ -21,6 +21,7 @@ return new class extends Migration
             $table->string('team3');
             $table->string('type');
             $table->string('matchday');
+            $table->string('outcome0');
             $table->string('outcome1');
             $table->string('outcome2');
             $table->string('outcome3');
