@@ -25,7 +25,8 @@ return new class extends Migration
             $table->string('outcome2');
             $table->string('outcome3');
             $table->string('outcome4');
-            $table->string('final_outcome');
+            $table->string('final_outcome1');
+            $table->string('final_outcome2');
             $table->string('odd');
             $table->string('result');
             $table->timestamps();

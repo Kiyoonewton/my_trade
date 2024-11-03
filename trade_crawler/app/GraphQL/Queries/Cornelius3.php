@@ -98,20 +98,25 @@ class Cornelius3
     return $this->getCountOddAndMatchday($this->getTotal($team, $j, $num), $this->getTotal($team, $j, $num + 1));
   }
 
-  protected function getFinalOutcome($outcome1, $outcome2, $outcome3, $outcome4, $team, $j)
+  protected function getFinalOutcome($outcome1, $outcome2, $outcome3, $outcome4, $team, $j, $first)
   {
     switch (true) {
       case $outcome1 === 'Win':
-        return $this->getCount($team, $j, 3)[0] === 6 ? 'Loss' : 'Win';
+        return $first ? ($this->getCount($team, $j, 3)[0] === 6 ? 'Loss' : 'Win') : ($this->getCount($team, $j, 3)[0] === 0 ? 'Loss' : 'Win');
       case $outcome2 === 'Win':
-        return $this->getCount($team, $j, 4)[0] === 6 ? 'Loss' : 'Win';
+        return $first ? ($this->getCount($team, $j, 4)[0] === 6 ? 'Loss' : 'Win') : ($this->getCount($team, $j, 4)[0] === 0 ? 'Loss' : 'Win');
       case $outcome3 === 'Win':
-        return $this->getCount($team, $j, 5)[0] === 6 ? 'Loss' : 'Win';
+        return $first ? ($this->getCount($team, $j, 5)[0] === 6 ? 'Loss' : 'Win') : ($this->getCount($team, $j, 5)[0] === 0 ? 'Loss' : 'Win');
       case $outcome4 === 'Win':
-        return $this->getCount($team, $j, 5)[0] === 6 ? 'Loss' : 'Win';
+        return $first ? ($this->getCount($team, $j, 6)[0] === 6 ? 'Loss' : 'Win') : ($this->getCount($team, $j, 5)[0] === 6 ? 'Loss' : 'Win');
       default:
         return 'Loss';
     }
+  }
+
+  protected function getFinalOutcome2($outcome1, $outcome2, $outcome3, $outcome4, $team, $j, $first)
+  {
+    return $first ? ($this->getCount($team, $j, 4)[0] === 6 ? 'Loss' : 'Win') : ($this->getCount($team, $j, 4)[0] === 0 ? 'Loss' : 'Win');
   }
   public function __invoke($_, $args)
   {
@@ -134,7 +139,8 @@ class Cornelius3
           $outcome2 = $outcome1 === 'Loss'  ? ($this->getCount($team, $j, 3)[0] === 6 ? 'Loss' : 'Win') : "";
           $outcome3 = $outcome2 === 'Loss'  ? ($this->getCount($team, $j, 4)[0] === 6 ? 'Loss' : 'Win') : "";
           $outcome4 = $outcome3 === 'Loss'  ? ($this->getCount($team, $j, 5)[0] === 6 ? 'Loss' : 'Win') : "";
-          $final_outcome = $this->getFinalOutcome($outcome1, $outcome2, $outcome3, $outcome4, $team, $j);
+          $final_outcome1 = $this->getFinalOutcome($outcome1, $outcome2, $outcome3, $outcome4, $team, $j, true);
+          $final_outcome2 = $this->getFinalOutcome2($outcome1, $outcome2, $outcome3, $outcome4, $team, $j, true);
           Result::create([
             'num' => $j + 1,
             'season_id' => $seasonId,
@@ -148,21 +154,41 @@ class Cornelius3
             'outcome2' => $outcome2,
             'outcome3' => $outcome3,
             'outcome4' => $outcome4,
-            'final_outcome' => $final_outcome,
+            'final_outcome1' => $final_outcome1,
+            'final_outcome2' => $final_outcome1 ===  'Win' ? "" : $final_outcome2,
             'odd' => $sameOdd1,
             'result' => $result1
           ]);
           echo "season $j, " . "team $l " . "-------> got one" . "\n";
-          // }
-          //  elseif ($count === 0) {
-          // $oddAndMatchday1 = $this->getCountOddAndMatchday($total2, $total3);
-          // // $count1 = $oddAndMatchday1[0];
-          // $againstOdd1 = implode(",", $oddAndMatchday1[1]);
-          // $matchday1 = implode(",", $oddAndMatchday1[3]);
-          // $result1 = implode(",", $oddAndMatchday1[4]);
-          // Result::create(['num' => $j + 1, 'season_id' => $seasonId, "team_num" => $l, 'team1' => $team1, 'team2' => $team2, 'team3' => $team3, 'type' => "against", 'matchday' => $matchday1, 'outcome1' => $count1 === 0 ? 'Loss' : 'Win', 'outcome2' => $count1 === 0  ? ($count2 === 0 ? 'Loss' : 'Win') : "", 'odd' => $againstOdd1, 'result' => $result1]);
-          // // echo "season $seasonId, " . "team $team1 vs $team2, $team1 vs $team3, $team2 vs $team3 " . "type same" . " matchday $matchday1" . " same_outcome " . ($count1 === 6 ? '6 ==========> Loss' : '6 ==========> Win') . " againt_outcome " . ($count1 === 0 ? ', 0 ==========> Loss' : ', 0 ==========> Win') . "same_odd $sameOdd1 ". "against_odd $againtOdd1" . "\n";
-          // echo "season $j, " . "team $l " .  " $count" . "-------> got one" . "\n";
+        } elseif ($this->getCount($team, $j, 1)[0] === 0) {
+          $sameOdd1 = implode(",", $this->getCount($team, $j, 1)[1]);
+          $matchday1 = implode(",", $this->getCount($team, $j, 1)[3]);
+          $result1 = implode(",", $this->getCount($team, $j, 1)[4]);
+          $outcome1 = $this->getCount($team, $j, 2)[0] === 0 ? 'Loss' : 'Win';
+          $outcome2 = $outcome1 === 'Loss'  ? ($this->getCount($team, $j, 3)[0] === 0 ? 'Loss' : 'Win') : "";
+          $outcome3 = $outcome2 === 'Loss'  ? ($this->getCount($team, $j, 4)[0] === 0 ? 'Loss' : 'Win') : "";
+          $outcome4 = $outcome3 === 'Loss'  ? ($this->getCount($team, $j, 5)[0] === 0 ? 'Loss' : 'Win') : "";
+          $final_outcome1 = $this->getFinalOutcome($outcome1, $outcome2, $outcome3, $outcome4, $team, $j, false);
+          $final_outcome2 = $this->getFinalOutcome2($outcome1, $outcome2, $outcome3, $outcome4, $team, $j, false);
+          Result::create([
+            'num' => $j + 1,
+            'season_id' => $seasonId,
+            "team_num" => $l,
+            'team1' => $team1,
+            'team2' => $team2,
+            'team3' => $team3,
+            'type' => "against",
+            'matchday' => $matchday1,
+            'outcome1' => $outcome1,
+            'outcome2' => $outcome2,
+            'outcome3' => $outcome3,
+            'outcome4' => $outcome4,
+            'final_outcome1' => $final_outcome1,
+            'final_outcome2' => $final_outcome1 ===  'Win' ? "" : $final_outcome2,
+            'odd' => $sameOdd1,
+            'result' => $result1
+          ]);
+          echo "season $j, " . "team $l " . "-------> got one" . "\n";
         } else {
           echo "season $j, " . "team $l " . "\n";
         }
