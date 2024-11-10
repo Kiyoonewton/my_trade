@@ -17,6 +17,7 @@ class Cornelius8
   use TraitTeamArrangerTrait;
 
   protected array $teams = ["Bournemouth", "Burnley", "Chelsea"];
+
   protected function arrangeTeam($num)
   {
     $result = [];
@@ -57,13 +58,15 @@ class Cornelius8
           })->where(function ($query) use ($match) {
             $query->where('away', $match[0])->orWhere('away', $match[1]);
           })
-          ->get(['home', 'away', 'matchday_id', 'over', 'under', 'result'])
+          ->get(['home', 'away', 'matchday_id', 'over', 'under', 'booker_prediction'])
           ->map(function ($item) {
-            $result = $item->result;
+            $result = $item->booker_prediction;
             $matchday_id = $item->matchday_id;
-            $sameOdd = $result === 1 ? $item->over : $item->under;
-            $againstOdd = $result === 1 ? $item->under : $item->over;
-            return [$result, $sameOdd, $againstOdd, $matchday_id];
+            $overOdd = $item->over;
+            $underOdd = $item->under;
+            $home = $item->home;
+            $away = $item->away;
+            return [$result, $overOdd, $underOdd, $matchday_id, $home, $away];
           });
       })->flatten(1)->all();
       return [
@@ -72,25 +75,21 @@ class Cornelius8
       ];
     });
   }
+
   protected function findArraysWithAllElementsInCommon($arrays)
   {
     $hashMap = [];
     $count = count($arrays);
 
-    // Loop through each array
     for ($i = 0; $i < $count; $i++) {
-      // Sort the array to ensure order-independent comparison
       $sortedArray = $arrays[$i]['matchIds'];
       sort($sortedArray);
 
-      // Convert the sorted array to a string to use as a hash key
       $hashKey = implode(',', $sortedArray);
 
-      // If the hash key exists, append the current index to its list
       if (isset($hashMap[$hashKey])) {
         $hashMap[$hashKey][] = $i;
       } else {
-        // Create a new entry in the hashMap for this unique sorted array
         $hashMap[$hashKey] = [$i];
       }
     }
@@ -105,8 +104,9 @@ class Cornelius8
           });
           $result1[] = array_map(function ($item) {
             return array_map(function ($data) {
-              return $data[0];
+              return $data[0] . ' ' . $data[1] . ' ' . $data[2] . ' ' . $data[3] . ' ' . $data[4] . ' ' . $data[5];
             }, $item);
+            // return $item;
           }, [$arrays[$index]['matches']])[0];
         }
       }
@@ -116,6 +116,7 @@ class Cornelius8
     }
     return $result;
   }
+
   protected function getCountOddAndMatchday($total1, $total2)
   {
     $count = 0;
