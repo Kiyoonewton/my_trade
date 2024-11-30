@@ -3,7 +3,7 @@
 
 namespace App\GraphQL\Queries;
 
-use App\Models\OverOrUnder;
+use App\Models\OddOrEven;
 use App\Models\Result;
 use App\Models\TeamArranger;
 use App\Trait\TeamArrangerTrait as TraitTeamArrangerTrait;
@@ -50,18 +50,18 @@ class Cornelius2
   {
     return collect($matches)->map(function ($matchSet) use ($seasons, $matchDays_array) {
       $matchResults = collect($matchSet['matches'])->map(function ($match) use ($seasons, $matchDays_array) {
-        return OverOrUnder::where('season_id', $seasons)
+        return OddOrEven::where('season_id', $seasons)
           ->whereBetween('matchday_id', $matchDays_array)->where(function ($query) use ($match) {
             $query->where('home', $match[0])->orWhere('home', $match[1]);
           })->where(function ($query) use ($match) {
             $query->where('away', $match[0])->orWhere('away', $match[1]);
           })
-          ->get(['home', 'away', 'matchday_id', 'over', 'under', 'result'])
+          ->get(['home', 'away', 'matchday_id', 'odd', 'even', 'result'])
           ->map(function ($item) {
             $result = $item->result;
             $matchday_id = $item->matchday_id;
-            $sameOdd = $result === 1 ? $item->over : $item->under;
-            $againstOdd = $result === 1 ? $item->under : $item->over;
+            $sameOdd = $result === 1 ? $item->odd : $item->even;
+            $againstOdd = $result === 1 ? $item->even : $item->odd;
             return [$result, $sameOdd, $againstOdd, $matchday_id];
           });
       })->flatten(1)->all();
@@ -112,9 +112,9 @@ class Cornelius2
           $sameOdd1 = implode(",", $oddAndMatchday1[1]);
           $matchday1 = implode(",", $oddAndMatchday1[3]);
           $result1 = implode(",", $oddAndMatchday1[4]);
-          Result::create(['num' => $j + 1, 'season_id' => $seasonId, 'team1' => $team1, 'team2' => $team2, 'team3' => $team3, 'type' => "same", 'matchday' => $matchday1, 'outcome' => $count1 === 6 ? 'Loss' : 'Win', 'odd' => $sameOdd1, 'result'=>$result1]);
+          return (['num' => $j + 1, 'season_id' => $seasonId, 'team1' => $team1, 'team2' => $team2, 'team3' => $team3, 'type' => "same", 'matchday' => $matchday1, 'outcome' => $count1 === 6 ? 'Loss' : 'Win', 'odd' => $sameOdd1, 'result' => $result1]);
           // echo "season $seasonId, " . "team $team1 vs $team2, $team1 vs $team3, $team2 vs $team3 " . "type same" . " matchday $matchday1" . " same_outcome " . ($count1 === 6 ? '6 ==========> Loss' : '6 ==========> Win') . " againt_outcome " . ($count1 === 0 ? ', 0 ==========> Loss' : ', 0 ==========> Win') . "same_odd $sameOdd1 ". "against_odd $againtOdd1" . "\n";
-          echo "season $j, " . "team $l " .  " $count" . "-------> got one". "\n";
+          echo "season $j, " . "team $l " .  " $count" . "-------> got one" . "\n";
         }
         //  elseif ($count === 0 && $count1 === 0) {
         //   $oddAndMatchday2 = $this->getCountOddAndMatchday($total2, $total3);

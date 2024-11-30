@@ -3,6 +3,7 @@
 
 namespace App\GraphQL\Queries;
 
+use App\Models\OddOrEven;
 use App\Models\OverOrUnder;
 use App\Models\Result;
 use App\Models\TeamArranger;
@@ -50,19 +51,19 @@ class Cornelius7
   {
     return collect($matches)->map(function ($matchSet) use ($seasons, $matchDays_array) {
       $matchResults = collect($matchSet['matches'])->map(function ($match) use ($seasons, $matchDays_array) {
-        return OverOrUnder::where('season_id', $seasons)
+        return OddOrEven::where('season_id', $seasons)
           ->whereBetween('matchday_id', $matchDays_array)->where(function ($query) use ($match) {
             $query->where('home', $match[0])->orWhere('home', $match[1]);
           })->where(function ($query) use ($match) {
             $query->where('away', $match[0])->orWhere('away', $match[1]);
           })
-          ->get(['home', 'away', 'matchday_id', 'over', 'under', 'booker_prediction'])
+          ->get(['home', 'away', 'matchday_id', 'odd', 'even', 'result'])
           ->map(function ($item) {
             // print_r($item->matchday_id);
-            $result = $item->booker_prediction;
+            $result = $item->result;
             $matchday_id = $item->matchday_id;
-            $overOdd = $item->over;
-            $underOdd = $item->under;
+            $overOdd = $item->odd;
+            $underOdd = $item->even;
             return [$result, $overOdd, $underOdd, $matchday_id];
           });
       })->flatten(1)->all();
@@ -178,8 +179,8 @@ class Cornelius7
           // $sameOdd1 = implode(",", $this->getOneCount($team, $j, $final_outcome1 === 'Loss' ? $winOutcome + 2 : $winOutcome + 1)[1]);
           // $matchday1 = implode(",", $this->getOneCount($team, $j, $final_outcome1 === 'Loss' ? $winOutcome + 2 : $winOutcome + 1)[2]);
           $result1 = implode(",", $this->getOneCount($team, $j, 6)[3]);
-          return($result1);
-          Result::where('num', $j + 1)->where('team_num', $l)->update([
+          return ($result1);
+          return ([
             'num' => $j + 1,
             'season_id' => $seasonId,
             "team_num" => $l,

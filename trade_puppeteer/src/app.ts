@@ -1,9 +1,10 @@
 import { redisClient } from "./lib/redis.js";
-import curl from "./lib/curl.js";
 import { execCrawlerLoop } from "./lib/execCrawlerLoop.js";
 
+
 //process through a iterateCurl
-if (process.argv.length === 2) {
+if (process.argv.length === 2 || process.argv.length === 3) {
+  const type = process.argv[2].toLowerCase() == 'vfl' ? 3 : process.argv[2].toLowerCase() == 'vfb' ? 8 : 7;
   await redisClient.connect();
   const value = await redisClient.get("timeStamp");
   const timestamp = new Date(value);
@@ -14,24 +15,16 @@ if (process.argv.length === 2) {
   const roundMissedPossible = totalRoundMissed > 85 ? 85 : totalRoundMissed;
   console.log("Total round(s) missed:", roundMissedPossible);
   if (totalRoundMissed >= 1) {
-    await execCrawlerLoop(roundMissedPossible);
+    await execCrawlerLoop(roundMissedPossible, type);
   } else {
     console.log("Please wait for new season to be completed");
   }
 } else {
-  //process from the terminal
   const args = process.argv.slice(2);
-  if (Number(args[0]) >= 1) {
-    if ((args.length > 1)) {
-      curl({ vflId: Number(args[1]), position: 2 + Number(args[0]) });
-    } else {
-      await execCrawlerLoop(Number(args[0]));
-      // const iterations = [3, 7, 8];
-      // iterations.map((item) =>
-      //   curl({ vflId: item, position: 2 + Number(args[0]) }),
-      // );
-    }
+  const type = args[0].toLowerCase() == 'vfl' ? 3 : args[0].toLowerCase() == 'vfb' ? 8 : 7;
+  if (Number(args[1]) >= 3) {
+    execCrawlerLoop(Number(args[1]), type);
   } else {
-    console.log("Please input >= 1");
+    console.log("Please let 4th value >= 3");
   }
 }

@@ -1,13 +1,13 @@
 import axios from "axios";
 import "dotenv/config";
 
-export const fetchCrawler = async ({ seasonId }: { seasonId: string }) => {
+export const fetchCrawler = async ({ seasonId, model_type }: { seasonId: string, model_type: 'VFL' | 'VFE' | 'VFB' }) => {
   console.log('====================================');
   console.log(seasonId);
   console.log('====================================');
   try {
     const mutation = `mutation {
-        createSeason(seasonId: ${seasonId}) {data}
+        createSeason(seasonId: ${seasonId}, model_type: ${model_type}) {data}
       }`;
 
     const response = await axios.post(

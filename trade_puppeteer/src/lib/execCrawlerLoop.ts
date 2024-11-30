@@ -1,25 +1,25 @@
 import curl from "./curl.js";
 import { redisClient } from "./redis.js";
 
-export async function execCrawlerLoop(totalRoundMissed: number) {
+export async function execCrawlerLoop(totalRoundMissed: number, type: number) {
   // const iterations = [3, 7, 8];
-  const iterations = [7];
-  const totalOperations = totalRoundMissed * iterations.length; // Total number of operations
+  // const type = [type];
+  const totalOperations = totalRoundMissed; // Total number of operations
   let completedOperations = 0;
 
   try {
     for (let index = totalRoundMissed; index >= 3; index--) {
-      for (const item of iterations) {
-        await curl({ vflId: item, position: index });
+      // for (const item of iterations) {
+      await curl({ vflId: type, position: index });
 
-        completedOperations++;
+      completedOperations++;
 
-        console.log(
-          `On -> ${index}, Progress .... ${Math.round(
-            (completedOperations / totalOperations) * 100
-          )}%`
-        );
-      }
+      console.log(
+        `On -> ${index}, Progress .... ${Math.round(
+          (completedOperations / totalOperations) * 100
+        )}%`
+      );
+      // }
     }
 
     const now = new Date();

@@ -9,13 +9,19 @@ type Query {
 }
 
 type BookerPrediction {
-    team: String,
-    prediction_count:Int
+    team: String
+    prediction_count: Int
+}
+
+enum ModelType {
+    VFL
+    VFE
+    VFB
 }
 
 #### mutations
 type Mutation {
-    createSeason(seasonId: ID!): MatchList
+    createSeason(seasonId: ID!, model_type: ModelType!): MatchList
 }
 
 type CreateSeasonOutput {

@@ -3,7 +3,7 @@
 
 namespace App\GraphQL\Queries;
 
-use App\Models\OverOrUnder;
+use App\Models\OddOrEven;
 use App\Models\Result;
 use App\Models\TeamArranger;
 use App\Trait\TeamArrangerTrait as TraitTeamArrangerTrait;
@@ -16,7 +16,7 @@ class Cornelius8
 {
   use TraitTeamArrangerTrait;
 
-  protected array $teams = ["Bournemouth", "Burnley", "Chelsea"];
+  protected array $teamsCollections = ['Bournemouth', 'Burnley', 'Chelsea', 'Crystal Palace', 'Everton', 'Leicester', 'Liverpool', 'London Guns', 'Manchester Blue', 'Manchester Reds', 'Newcastle', 'Southampton', 'Tottenham', 'Watford', 'West Ham', 'Wolverhampton'];
 
   protected function arrangeTeam($num)
   {
@@ -52,21 +52,21 @@ class Cornelius8
   {
     return collect($matches)->map(function ($matchSet) use ($seasons, $matchDays_array) {
       $matchResults = collect($matchSet['matches'])->map(function ($match) use ($seasons, $matchDays_array) {
-        return OverOrUnder::where('season_id', $seasons)
+        return OddOrEven::where('season_id', $seasons)
           ->whereBetween('matchday_id', $matchDays_array)->where(function ($query) use ($match) {
             $query->where('home', $match[0])->orWhere('home', $match[1]);
           })->where(function ($query) use ($match) {
             $query->where('away', $match[0])->orWhere('away', $match[1]);
           })
-          ->get(['home', 'away', 'matchday_id', 'over', 'under', 'booker_prediction'])
+          ->get(['home', 'away', 'matchday_id', 'odd', 'even', 'result'])
           ->map(function ($item) {
-            $result = $item->booker_prediction;
+            $result = $item->result;
             $matchday_id = $item->matchday_id;
-            $overOdd = $item->over;
-            $underOdd = $item->under;
+            $oddOdd = $item->odd;
+            $evenOdd = $item->even;
             $home = $item->home;
             $away = $item->away;
-            return [$result, $overOdd, $underOdd, $matchday_id, $home, $away];
+            return [$result, $oddOdd, $evenOdd, $matchday_id, $home, $away];
           });
       })->flatten(1)->all();
       return [
@@ -142,23 +142,29 @@ class Cornelius8
 
     return $thirdColumn;
   }
-  public function __invoke($_, $args)
+  public function __invoke()
   {
-    $start = $args['start'];
-    $end = $args['end'];
+    // $start = $args['start'];
+    // $end = $args['end'];
 
-    for ($j = $start; $j < $end; $j++) {
-      $seasonId = $this->getSeasonId($j + 1)->first();
-      $arrray_of_matchDays = [];
-      for ($l = 1; $l < 561; $l++) {
-        $team = $this->arrangeTeam($l);
+    // for ($j = $start; $j < $end; $j++) {
+    //   $seasonId = $this->getSeasonId($j + 1)->first();
+    //   $arrray_of_matchDays = [];
+    //   for ($l = 1; $l < 561; $l++) {
+    //     $team = $this->arrangeTeam($l);
 
-        $total1 = $this->processMatches([$team], $seasonId, [1, 30])->first();
-        $arrray_of_matchDays[] = [...$total1, 'matchIds' => $this->extractAndSortThirdColumn($total1)];
-        // $arrray_of_matchDays[] = $this->extractAndSortThirdColumn($total1);
-      }
-      return $this->findArraysWithAllElementsInCommon($arrray_of_matchDays);
-    }
+    //     $total1 = $this->processMatches([$team], $seasonId, [1, 30])->first();
+    //     $arrray_of_matchDays[] = [...$total1, 'matchIds' => $this->extractAndSortThirdColumn($total1)];
+    //     // $arrray_of_matchDays[] = $this->extractAndSortThirdColumn($total1);
+    //   }
+    //   return $this->findArraysWithAllElementsInCommon($arrray_of_matchDays);
+    // }
+
+    array_map(
+      fn($array) => TeamArranger::create(['team1' => $array[0], 'team2' => $array[1], 'team3' => $array[2]]),
+      $this->generate560Groupings($this->teamsCollections)
+    );
+    // return $this->generate560Groupings($this->teamsCollections);
   }
 }
 
