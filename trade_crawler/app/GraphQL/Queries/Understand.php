@@ -3,7 +3,7 @@
 namespace App\GraphQL\Queries;
 
 use App\Models\OverOrUnder;
-use Illuminate\Support\Facades\DB;
+use App\Models\Season;
 
 class Understand
 {
@@ -14,10 +14,10 @@ class Understand
 
   protected function getSeasonId(int $row_number)
   {
-    return DB::table(DB::raw("(SELECT *, @row_num := @row_num + 1 AS row_num 
-    FROM seasons, (SELECT @row_num := 0) AS init 
-    ORDER BY seasonId) AS subquery"))
-      ->where('row_num', $row_number)
+    // MongoDB compatible: skip (row_number - 1) records and take 1
+    return Season::orderBy('seasonId')
+      ->skip($row_number - 1)
+      ->take(1)
       ->pluck('seasonId');
   }
 

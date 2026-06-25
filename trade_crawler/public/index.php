@@ -2,6 +2,12 @@
 
 use Illuminate\Http\Request;
 
+// Suppress deprecation warnings
+error_reporting(E_ALL & ~E_DEPRECATED);
+
+// Increase execution time for long-running requests
+set_time_limit(300); // 5 minutes
+
 define('LARAVEL_START', microtime(true));
 
 // Determine if the application is in maintenance mode...

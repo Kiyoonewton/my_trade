@@ -2,8 +2,8 @@
 
 namespace App\GraphQL\Queries;
 
-use App\Models\OverOrUnder;
-use Illuminate\Support\Facades\DB;
+use App\Models\WinOrDraw;
+use App\Models\Season;
 
 /**
  * desc: get the team booker's prediction count
@@ -12,131 +12,139 @@ use Illuminate\Support\Facades\DB;
 
 class Get2ndIn16WithFirstAppearance
 {
-  protected string $season_id = "2879263";
-  protected array $matchDays = [[1, 15], [16, 30]];
+  protected string $season_id = "3054200";
+  protected array $matchDays = [1, 30];
 
   protected array $teams = ['Bournemouth', 'Burnley', 'Chelsea', 'Crystal Palace', 'Everton', 'Leicester', 'Liverpool', 'London Guns', 'Manchester Blue', 'Manchester Reds', 'Newcastle', 'Southampton', 'Tottenham', 'Watford', 'West Ham', 'Wolverhampton'];
+
+  /**
+   * Process a season and return analysis
+   * @param string $seasonId
+   * @param array|null $teamIndices - e.g. [1,2,3] for teams at positions 1,2,3 (1-indexed)
+   */
+  public function process(string $seasonId, ?array $teamIndices = null)
+  {
+    // Step 1: Fetch and save data from API
+    $job = new \App\Jobs\ProcessWinOrDraw($seasonId);
+    $job->handle();
+
+    // Step 2: Run analysis
+    return $this->__invoke(null, ['seasonId' => $seasonId, 'teamIndices' => $teamIndices]);
+  }
 
   /**
    * desc: get the team that played according to the booker
    * Return: Array [team1, team2, number_of_their_won_to_the_prediction]
    */
 
-  protected function getTeams(int $index, int $type, string $seasonId, int $start)
+  protected function getTeams()
   {
-    return collect($this->teams)->map(function ($team, $idx) use ($index, $type, $seasonId, $start) {
-      $results = OverOrUnder::where('season_id', $seasonId)->where(function ($query) use ($team) {
+    return collect($this->teams)->map(function ($team) {
+      $results = WinOrDraw::where('season_id', $this->season_id)->where(function ($query) use ($team) {
         $query->where('home', $team)->orWhere('away', $team);
-      })->whereBetween('matchday_id', $this->matchDays[$index])->where('booker_prediction', $type)->get(['home', 'away', 'matchday_id']);
+      })->whereBetween('matchday_id', $this->matchDays)->get(['home', 'away', 'matchday_id', 'home_odd', 'away_odd', 'draw_odd', 'result']);
 
-      $matches = $results->map(function ($match) {
+      $matches = $results->map(function ($match) use ($team) {
+        $position = $match->home === $team ? 'home' : 'away';
+        $odd = $position === 'home' ? $match->home_odd : $match->away_odd;
+
+        $win = ($position === 'home' && $match->result === '1') || ($position === 'away' && $match->result === '2');
+
         return [
-          $match->home,
-          $match->away,
-          $match->matchday_id
+          'position' => $position,
+          'odd' => $odd,
+          'win' => $win,
+          'result' => $match->result,
         ];
       });
 
+      $total_odd = $matches->reduce(function ($carry, $match) {
+        return $carry + (float) $match['odd'];
+      }, 1.0);
 
-      if (count($matches) === 0) {
-        $firstTwo = 15;
-      } else if ($index === 1) {
-        $firstTwo = ($matches[0][2]) - 15;
-      } else {
-        $firstTwo = ($matches[0][2]);
-      }
-
-      return [
-        'team' => $team,
-        'no of 2s' => $matches->count(),
-        'first 2' => $firstTwo
-      ];
+      return ['team' => $team, 'matches' => $matches->values()->all(), 'total_odd' => $total_odd];
     });
   }
 
-  protected function getSeasonId(int $start, int $end)
+  public function __invoke($_, $args = [])
   {
-    return DB::table(DB::raw("(SELECT *, @row_num := @row_num + 1 AS row_num 
-    FROM seasons, (SELECT @row_num := 0) AS init 
-    ORDER BY seasonId) AS subquery"))
-      ->whereBetween('row_num', [$start, $end])
-      ->pluck('seasonId')
-      ->toArray();
-  }
-
-  public function __invoke($_, $args)
-  {
-    $type = $args['type'];
-    $start = $args['start'];
-    $end = $args['end'];
-
-    $seasons = $this->getSeasonId($start, $end);
-    $seasonLength = count($seasons);
+    $seasonId = $args['seasonId'] ?? $this->season_id;
+    $teamIndices = $args['teamIndices'] ?? null;
+    $this->season_id = $seasonId;
 
     $allResults = [];
 
-    for ($i = 0; $i < $seasonLength; $i++) {
-      for ($j = 0; $j < count($this->matchDays); $j++) {
-        //find the highest and smallest value of key 'first 2' 
-        $teamData = $this->getTeams($j, $type, $seasons[$i], $i)->all();
-        usort($teamData, function ($a, $b) {
-          return $b['first 2'] <=> $a['first 2'];
-        });
-        $top_two = array_slice($teamData, 0, 2);
+    $winPatterns = [
+      // ['1', '1', '1'],
+      ['1', '1', 'x'],
+      ['1', 'x', '1'],
+      ['x', '1', '1'],
+      ['1', '1', '2'],
+      ['1', '2', '1'],
+      ['2', '1', '1'],
+      ['1', 'x', 'x'],
+      ['x', '1', 'x'],
+      ['x', 'x', '1'],
+      ['1', '2', '2'],
+      ['2', '1', '2'],
+      ['2', '2', '1'],
+    ];
 
-        if ($j === 0) {
-          $allResults[] = ['teams' => array_values($top_two)[1],  'number' => ($i + $start) . 'a'];
-        } else {
-          $allResults[] = ['teams' => array_values($top_two)[1], 'number' => ($i + $start) . 'b'];
+    $teams = $this->getTeams()->sortBy('total_odd')->values();
+
+    // If specific indices provided, use only those teams
+    if ($teamIndices !== null) {
+      $top3 = collect($teamIndices)->map(function ($index) use ($teams) {
+        return $teams[$index - 1]; // Convert 1-indexed to 0-indexed
+      })->values()->all();
+      $teamCombinations = [$top3];
+    } else {
+      // Generate all combinations of 3 teams from top 6
+      $top6 = $teams->take(6);
+      $teamCombinations = [];
+
+      for ($i = 0; $i < count($top6); $i++) {
+        for ($j = $i + 1; $j < count($top6); $j++) {
+          for ($k = $j + 1; $k < count($top6); $k++) {
+            $teamCombinations[] = [$top6[$i], $top6[$j], $top6[$k]];
+          }
         }
-        //$allResults[] = $this->getTeams($j, $type, $seasons[$i], $i)->all();
       }
     }
 
-    // for ($i = 0; $i < $seasonLength; $i++) {
-    //   $season_id = $seasons[$i];
+    $allResults = [];
 
-    //   for ($j = 0; $j < count($this->matchDays); $j++) {
-    //     $matches = [];
-    //     $matchDays_array = [];
+    foreach ($teamCombinations as $index => $top3) {
+      $matchCount = count($top3[0]['matches']);
+      $allComparisons = [];
 
-    //     if ($i === 0 && $j === 0) {
-    //       $matches = $this->getTeams(0, $type, $seasons[$i]);
-    //       $matchDays_array = $this->matchDays[1];
-    //     }
-    //     if ($i !== 0 && $j === 0) {
-    //       $matches = $this->getTeams(1, $type, $seasons[$i - 1]);
-    //       $matchDays_array = $this->matchDays[0];
-    //     }
-    //     if ($i !== 0 && $j === 1) {
-    //       $matches = $this->getTeams(0, $type, $seasons[$i]);
-    //       $matchDays_array = $this->matchDays[1];
-    //     }
+      for ($i = 0; $i < $matchCount; $i++) {
+        $combo = [
+          $top3[0]['matches'][$i]['result'] ?? null,
+          $top3[1]['matches'][$i]['result'] ?? null,
+          $top3[2]['matches'][$i]['result'] ?? null,
+        ];
+        $allComparisons[] = [
+          'results' => $combo,
+          'win' => in_array($combo, $winPatterns),
+        ];
+      }
 
-    //     //return ['seasons' => $seasons, 'seasons2' => $seasons[$i - 1], 'season' => $season_id, 'matchDays_array' => $matchDays_array, 'matches' => $matches, 'other' => [$i, $j]];
+      $windows = [];
+      for ($i = 0; $i <= $matchCount - 4; $i++) {
+        $window = array_slice($allComparisons, $i, 4);
+        $hasWin = collect($window)->contains('win', true);
+        $windows[] = [
+          'range' => ($i + 1) . '-' . ($i + 4),
+          'win' => $hasWin,
+        ];
+      }
 
-    //     $results = collect($matches)->map(function ($matchSet) use ($type, $season_id, $matchDays_array) {
-    //       $matchResults = collect($matchSet['matches'])->map(function ($match) use ($season_id, $matchDays_array) {
-    //         return OverOrUnder::where('season_id', $season_id)
-    //           ->whereBetween('matchday_id', $matchDays_array)
-    //           ->whereIn('home', [$match[0], $match[1]])
-    //           ->whereIn('away', [$match[0], $match[1]])
-    //           // ->get(['home', 'away', 'result'])
-    //           // ->map(function ($item) {
-    //           // return $item->toArray();        // Convert each model instance to an array
-    //           // });
-    //           // })->flatten(1)->all();
-    //           ->pluck('result')->first();
-    //       });
-
-    //       $success = $matchResults->contains($type) ? 'success' : 'fail';
-
-    //       return ['match' => $success, 'count' => $matchSet['count']];
-    //     });
-
-    //     $allResults[] = ['result' => $results->all(), 'number' => $i + $start];
-    //   }
-    // }
+      $allResults[] = [
+        'combination' => [$top3[0]['team'], $top3[1]['team'], $top3[2]['team']],
+        'windows' => $windows,
+      ];
+    }
 
     return $allResults;
   }

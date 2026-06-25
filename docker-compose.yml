@@ -66,7 +66,7 @@ services:
     image: redis:latest
     container_name: trade_redisdb
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - ./db/redisdb:/data
 
