@@ -14,6 +14,24 @@ docker compose -f engine/compose.yaml up -d mongodb
 
 No database ports are published. The default named volume starts a **new empty database**. Existing `db/mongodb` data is not deleted or automatically imported. Back up the old database with `mongodump` before switching, then restore with `mongorestore`, or set `DB_DSN` to a reachable existing MongoDB server. Never run `down -v` unless you intend to remove the new volume.
 
+## Visible Chrome on your Mac
+
+Use this mode to watch discovery in local Chrome while the existing API collector and MongoDB stay in Docker:
+
+```sh
+docker compose -f engine/compose.yaml build app
+docker compose -f engine/compose.yaml up -d --wait mongodb
+cd discovery
+npm ci
+npm run collect -- 85
+```
+
+Enter the current season ID or full archive URL at the prompt. The supplied season goes straight to the API. Local Puppeteer opens a visible Chrome window, scans archive rows and clicks Show more to discover additional IDs. Don't navigate or close the managed window while discovery is running. The browser closes when discovery finishes or collection stops early.
+
+This Mac mode uses the standard Google Chrome application path; set `CHROMIUM_PATH` if Chrome is installed elsewhere. It uses a fresh temporary browser profile with no stealth or fingerprint modifications. If the server denies access, collection of the supplied season still runs and discovery reports the restriction. No claim is made that a visible browser will always be permitted.
+
+The host Node runner invokes `docker compose run --rm -T app matches:collect ...` for each queued season. Do not run a separate collector simultaneously. The 85-season maximum, unique IDs, 240-match repair/skip checks and three-uncrawlable-season stop rule are shared with Docker mode. Manifests stay in the root `raw/` folder.
+
 ## Discover and collect 85 seasons
 
 Run the collector from an interactive terminal:

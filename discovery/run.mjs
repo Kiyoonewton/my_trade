@@ -5,6 +5,10 @@ import {discover, defaults} from './discover.mjs';
 import {collectBatch, seasonId} from './seasons.mjs';
 import {promptForArchive} from './configuration.mjs';
 import {seasonStream} from './season-stream.mjs';
+import {runtime} from './runtime.mjs';
+import {join} from 'node:path';
+
+const config = runtime(process.env.MY_TRADE_LOCAL === '1');
 
 const count = Number(process.argv[2] ?? 85);
 if (!Number.isInteger(count) || count < 1 || count > 1000) {
@@ -15,8 +19,8 @@ let endpoint, manifest, manifestPath;
 try {
   endpoint = await promptForArchive();
   const currentId = seasonId(endpoint);
-  await mkdir('/raw', {recursive:true});
-  manifestPath = `/raw/seasons-${Date.now()}.json`;
+  await mkdir(config.rawDirectory, {recursive:true});
+  manifestPath = join(config.rawDirectory, `seasons-${Date.now()}.json`);
   manifest = {archive_url:endpoint, discovered_at:new Date().toISOString(),
     order:'current-first-then-top-to-bottom', season_ids:[], processed:[]};
   console.log(`Current season ${currentId}: starting API collection immediately.`);
@@ -25,8 +29,7 @@ try {
     const close = () => { if (browser) void browser.close().catch(() => {}); };
     signal.addEventListener('abort', close, {once:true});
     try {
-      browser = await puppeteer.launch({executablePath:process.env.CHROMIUM_PATH ?? '/usr/bin/chromium',
-        args:['--no-sandbox','--disable-dev-shm-usage'], headless:true});
+      browser = await puppeteer.launch(config.launchOptions);
       if (signal.aborted) return;
       const page = await browser.newPage();
       const selectors = Object.fromEntries(Object.entries(defaults).map(([key, value]) =>
@@ -40,8 +43,8 @@ try {
   }, {limit:count, onQueued:id => manifest.season_ids.push(id)});
   const result = await collectBatch(ids, async id => {
     const status = await new Promise((resolve, reject) => {
-      const child = spawn('php', ['/app/artisan','matches:collect',id,
-        `--competition=${process.env.COMPETITION_ID ?? 'virtual-football'}`], {stdio:'inherit'});
+      const job = config.collection(id);
+      const child = spawn(job.command, job.args, {stdio:'inherit', cwd:job.cwd});
       child.once('error',reject);
       child.once('exit',code=>resolve(({0:'complete',2:'network',3:'incomplete'})[code] ?? 'fatal'));
     });
