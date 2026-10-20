@@ -108,6 +108,7 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
           await page.goBack({waitUntil:'networkidle2', timeout});
           await page.waitForFunction(url => location.href === url, {timeout}, before);
           await waitForArchive();
+          await page.waitForNetworkIdle({idleTime:350, timeout});
           while (await rowCount() < rows.length) {
             if (!await more()) throw new Error('Could not restore loaded archive rows.');
           }
