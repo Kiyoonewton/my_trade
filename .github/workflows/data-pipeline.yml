@@ -7,12 +7,15 @@ jobs:
       - uses: actions/checkout@v4
       - run: cp engine/.env.example engine/.env
       - run: docker compose -f engine/compose.yaml build
+      - name: Puppeteer discovery checks
+        run: docker compose -f engine/compose.yaml run --rm --no-deps --entrypoint sh collector -c 'cd /app/discovery && node --test tests/*.test.mjs'
       - name: PHP syntax and pipeline checks
         run: |
           docker compose -f engine/compose.yaml run --rm --no-deps --entrypoint sh app -c 'find app routes config bootstrap tests -name "*.php" -exec php -l {} \; && php tests/data_pipeline.php'
       - name: Database export integration
         run: |
           docker compose -f engine/compose.yaml up -d --wait mongodb
+          docker compose -f engine/compose.yaml run --rm --entrypoint php app tests/season_collection.php
           docker compose -f engine/compose.yaml exec -T mongodb mongosh my_trade --quiet --eval 'db.win_or_draws.insertOne({season_id:"test",matchday_id:1,home:"A",away:"B",home_odd:2.1,draw_odd:3.2,away_odd:3.8,result:"x"})'
           docker compose -f engine/compose.yaml run --rm app matches:export /exports/test.json --format=json --season=test
           docker compose -f engine/compose.yaml run --rm app matches:export /exports/test.csv --season=test
