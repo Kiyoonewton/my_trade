@@ -50,3 +50,10 @@ test('corrupt checkpoint fails instead of silently fetching completed history ag
     await assert.rejects(()=>loadProgress(dir,'virtual-football'), /Cannot read/);
   } finally {await rm(dir,{recursive:true,force:true});}
 });
+
+test('observed archive order corrects an older supplied season previously placed first', () => {
+ const p={order:['10001','10003','10002'],seasons:{}};
+ addDiscovered(p,['10003','10002','10001']);
+ assert.deepEqual(p.order,['10003','10002','10001']);
+ assert.deepEqual(pendingOldestFirst(p),['10001','10002','10003']);
+});

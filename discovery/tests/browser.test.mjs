@@ -72,3 +72,18 @@ test('same-URL current row and unresolved row do not block older seasons', {skip
   assert.deepEqual(ids,['10003','10002']);assert.deepEqual(unresolved,[2]);
  } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}
 });
+
+test('real pagination container ignores unrelated buttons and preserves IDs on pagination failure', {skip:!process.env.CHROMIUM_PATH}, async()=>{
+ const html=`<!doctype html><div role="main"><button>Other</button><table><thead><tr><th>Season</th><th>Champion</th></tr></thead><tbody>
+ <tr class="cursor-pointer" data-season-id="10003"><td>Season</td></tr>
+ <tr class="cursor-pointer" data-season-id="10002"><td>Season</td></tr>
+ </tbody></table><div class="col-xs-12 text-center margin-top-medium"><button>Show more</button></div></div>`;
+ const server=createServer((req,res)=>{res.setHeader('Content-Type','text/html');res.end(html)});
+ await new Promise(r=>server.listen(0,'0.0.0.0',r));let browser;
+ try {
+  browser=await puppeteer.launch({executablePath:process.env.CHROMIUM_PATH,args:['--no-sandbox'],headless:true});
+  const page=await browser.newPage();const saved=[];
+  await assert.rejects(()=>discover(page,{endpoint:`http://127.0.0.1:${server.address().port}/archive`,count:85,timeout:300,onSeason:id=>saved.push(id)}),/Discovered IDs are saved/);
+  assert.deepEqual(saved,['10003','10002']);
+ } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}
+});
