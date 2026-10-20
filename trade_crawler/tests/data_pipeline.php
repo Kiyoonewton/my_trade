@@ -29,6 +29,8 @@ try {
     foreach (['csv','json'] as $format) {
         $path = $dir.'/matches.'.$format;
         check($export->write([$legacy],$path,$format) === 1, 'Row count');
+        clearstatcache(true, $path);
+        check((fileperms($path) & 0777) === 0644, 'Exports must be host-readable, not world-writable');
         if ($format === 'json') {
             $rows = json_decode(file_get_contents($path),true,512,JSON_THROW_ON_ERROR);
             check($rows[0]['result'] === 'D' && $rows[0]['home_odds'] === 2.1, 'Legacy mapping');
