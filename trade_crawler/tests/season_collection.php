@@ -43,12 +43,17 @@ try {
     verify($run() === 0 && count($requests) === 0, 'Complete season skipped without requests');
     $matches->deleteOne(['season_id'=>$season,'matchday_id'=>7]);
     $requests = []; $fake(7);
-    verify($run() === 1, 'Incomplete API response must report incomplete');
+    verify($run() === 3, 'Incomplete API response must report incomplete');
     verify(str_contains(Artisan::output(),'INCOMPLETE'), 'Terminal reports incomplete');
     verify($matches->countDocuments(['season_id'=>$season]) === 239, 'Preserve progress after incomplete API');
     verify(count($requests) === 1, 'Only missing matchday fetched');
     $requests = []; $fake(8,false);
-    verify($run() === 1 && $matches->countDocuments(['season_id'=>$season]) === 239, 'Unsettled response not counted complete');
+    verify($run() === 3 && $matches->countDocuments(['season_id'=>$season]) === 239, 'Unsettled response not counted complete');
+    foreach ([429, 503, 404] as $status) {
+        Http::swap(new Illuminate\Http\Client\Factory);
+        Http::fake(fn () => Http::response([], $status));
+        verify($run() === ($status === 404 ? 3 : 2), 'HTTP failure classification');
+    }
     $requests = []; $fake();
     verify($run() === 0, 'Retry repairs incomplete season');
     verify($matches->countDocuments(['season_id'=>$season]) === 240 && count($requests) === 1, 'Repair without duplicate matches');

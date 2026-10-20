@@ -4,7 +4,7 @@ import {createServer} from 'node:http';
 import puppeteer from 'puppeteer-core';
 import {discover} from '../discover.mjs';
 
-test('Puppeteer loads archive pages and returns 85 unique IDs oldest first', {skip:!process.env.CHROMIUM_PATH}, async()=>{
+test('Puppeteer loads archive pages and returns 85 unique IDs top to bottom', {skip:!process.env.CHROMIUM_PATH}, async()=>{
  const html = `<!doctype html><table><tbody id="rows"></tbody></table><button id="more">More</button>
  <script>
  let offset=0;
@@ -24,6 +24,20 @@ test('Puppeteer loads archive pages and returns 85 unique IDs oldest first', {sk
  const ids=await discover(page,{endpoint:`http://127.0.0.1:${server.address().port}`,count:85,
  selectors:{league:'',archive:'',rows:'#rows tr',more:'#more'},timeout:1000});
  assert.equal(ids.length,85); assert.equal(new Set(ids).size,85);
- assert.equal(ids[0],'3147519'); assert.equal(ids[84],'3147603');
+ assert.equal(ids[0],'3147603'); assert.equal(ids[84],'3147519');
+ } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}
+});
+
+test('direct archive defaults support clickable rows without links and fewer than 85 seasons', {skip:!process.env.CHROMIUM_PATH}, async()=>{
+ const html=`<!doctype html><main><table><tbody>
+ ${['3147738','3147737','3147736'].map(id=>`<tr onclick="location.href='/season/${id}'"><td>League ${id}</td></tr>`).join('')}
+ </tbody></table></main>`;
+ const server=createServer((req,res)=>{res.setHeader('Content-Type','text/html');res.end(html)});
+ await new Promise(r=>server.listen(0,'0.0.0.0',r));let browser;
+ try {
+  browser=await puppeteer.launch({executablePath:process.env.CHROMIUM_PATH,args:['--no-sandbox'],headless:true});
+  const page=await browser.newPage();
+  const ids=await discover(page,{endpoint:`http://127.0.0.1:${server.address().port}/archive`,count:85,timeout:2000});
+  assert.deepEqual(ids,['3147738','3147737','3147736']);
  } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}
 });

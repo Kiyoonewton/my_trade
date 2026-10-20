@@ -5,6 +5,8 @@ use App\Services\SeasonIntegrity;
 use App\Services\SeasonStore;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 class CollectSeason extends Command
 {
     protected $signature = 'matches:collect {season} {--competition=virtual-football} {--matchdays=30} {--matches-per-matchday=8} {--sequence=}';
@@ -42,33 +44,44 @@ class CollectSeason extends Command
                 if ($integrity->completeDay($stored, $expected)) { continue; }
                 try {
                     $response = Http::timeout(30)->retry(3, 500)->get($base.':'.$season.'/'.$day)->throw();
-                    $dir = env('RAW_DATA_DIR', '/raw');
-                    if (!is_dir($dir) || !is_writable($dir)) { throw new \RuntimeException('Raw archive directory must be writable.'); }
-                    $saved = file_put_contents($dir.'/'.$season.'-'.$day.'-'.bin2hex(random_bytes(6)).'.json', $response->body(), LOCK_EX);
-                    if ($saved === false) { throw new \RuntimeException('Cannot archive response.'); }
-                    $incoming = $normalizer->normalize($response->json(), $season, $day);
-                    if (!$integrity->completeDay($incoming, $expected)) {
-                        throw new \RuntimeException('API did not supply the expected unique settled matches.');
+                } catch (ConnectionException $e) {
+                    $this->warn("NETWORK {$season}, matchday {$day}: ".$e->getMessage()); return 2;
+                } catch (RequestException $e) {
+                    $code = $e->response->status();
+                    if ($code === 408 || $code === 429 || $code >= 500) {
+                        $this->warn("NETWORK {$season}, matchday {$day}: HTTP {$code}; not an unavailable season."); return 2;
                     }
-                    foreach ($incoming as $row) {
-                        $store->save($row, $competition,
-                            $this->option('sequence') !== null ? (int) $this->option('sequence') : null, $base);
-                    }
-                    $this->info("{$season}: repaired matchday {$day}.");
-                } catch (\Throwable $e) {
-                    $this->warn("INCOMPLETE {$season}, matchday {$day}: ".$e->getMessage());
-                    break; // Keep progress; let the batch move on to the next season.
+                    $this->warn("INCOMPLETE {$season}, matchday {$day}: HTTP {$code}; moving on."); return 3;
                 }
+                $dir = env('RAW_DATA_DIR', '/raw');
+                if (!is_dir($dir) || !is_writable($dir)) { throw new \RuntimeException('Raw archive directory must be writable.'); }
+                $saved = file_put_contents($dir.'/'.$season.'-'.$day.'-'.bin2hex(random_bytes(6)).'.json', $response->body(), LOCK_EX);
+                if ($saved === false) { throw new \RuntimeException('Cannot archive response.'); }
+                try {
+                    $data = $response->json();
+                    if (!is_array($data)) { throw new \InvalidArgumentException('API response is not JSON match data.'); }
+                    $incoming = $normalizer->normalize($data, $season, $day);
+                    if (!$integrity->completeDay($incoming, $expected)) {
+                        throw new \InvalidArgumentException('API did not supply the expected unique settled matches.');
+                    }
+                } catch (\InvalidArgumentException $e) {
+                    $this->warn("INCOMPLETE {$season}, matchday {$day}: ".$e->getMessage()); return 3;
+                }
+                foreach ($incoming as $row) {
+                    $store->save($row, $competition,
+                        $this->option('sequence') !== null ? (int) $this->option('sequence') : null, $base);
+                }
+                $this->info("{$season}: repaired matchday {$day}.");
             }
             $final = $store->rows($season, $competition);
             if (!$integrity->completeSeason($final, $days, $expected)) {
                 $this->warn("INCOMPLETE {$season}: ".count($final).'/'.($days*$expected).' stored; moving on.');
-                return self::FAILURE;
+                return 3;
             }
             $this->info("COMPLETE {$season}: ".count($final).' unique settled matches.');
             return self::SUCCESS;
         } catch (\Throwable $e) {
-            $this->error("INCOMPLETE {$season}: ".$e->getMessage()); return self::FAILURE;
+            $this->error("ERROR {$season}: ".$e->getMessage()); return self::FAILURE;
         } finally { flock($lock, LOCK_UN); fclose($lock); }
     }
 }

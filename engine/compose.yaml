@@ -19,6 +19,8 @@ services:
       target: collector
     env_file: .env
     shm_size: 1gb
+    stdin_open: true
+    tty: true
     volumes:
       - ../exports:/exports
       - ../raw:/raw
