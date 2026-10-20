@@ -12,7 +12,7 @@ export function addDiscovered(progress, ids) {
   const fresh = topDown(ids, ids.length);
   const anchor = fresh.find(id => progress.order.includes(id));
   const before = anchor ? progress.order.slice(0, progress.order.indexOf(anchor)) : [];
-  progress.order = [...new Set([...before, ...fresh, ...progress.order])];
+  progress.order = [...new Set([...before.filter(id => !fresh.includes(id)), ...fresh, ...progress.order])];
   for (const id of fresh) progress.seasons[id] ??= {status:'pending'};
 }
 

@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer-core';
 import {spawn} from 'node:child_process';
 import {mkdir} from 'node:fs/promises';
 import {discover, defaults} from './discover.mjs';
-import {collectBatch, seasonId} from './seasons.mjs';
+import {collectBatch} from './seasons.mjs';
 import {promptForArchive} from './configuration.mjs';
 import {runtime} from './runtime.mjs';
 import {loadProgress, saveJson, addDiscovered, pendingOldestFirst, retryNetwork} from './progress.mjs';
@@ -26,7 +26,6 @@ try {
   if (!resume) {
     const endpoint = await promptForArchive();
     manifest.archive_url = endpoint;
-    const currentId = seasonId(endpoint);
     let browser;
     try {
       browser = await puppeteer.launch(config.launchOptions);
@@ -34,11 +33,8 @@ try {
       const selectors = Object.fromEntries(Object.entries(defaults).map(([key, value]) =>
         [key, process.env[`ARCHIVE_${key.toUpperCase()}_SELECTOR`] ?? value]));
       console.log(`Discovering up to ${count} seasons before API collection...`);
-      // Include the supplied current season even if the archive only lists previous seasons.
-      manifest.discovery_ids.push(currentId);
-      addDiscovered(progress, manifest.discovery_ids);
-      await saveJson(path, progress);
-      if (count > 1) await discover(page, {endpoint, count, selectors, initialIds:[currentId],
+      // The archive lists its own current seasons even when opened from an older URL.
+      await discover(page, {endpoint, count, selectors,
         onUnresolved:async row => { (manifest.unresolved_rows ??= []).push(row); },
         onSeason:async id => {
           if (!manifest.discovery_ids.includes(id)) manifest.discovery_ids.push(id);

@@ -2,7 +2,7 @@ import {topDown, seasonId} from './seasons.mjs';
 
 // The supplied URL opens the archive directly; no league tab navigation is needed.
 export const defaults = {
-  league: '', archive: '', rows: ':is(main, [role="main"]) table tbody tr.cursor-pointer', more: ':is(main, [role="main"]) button',
+  league: '', archive: '', rows: ':is(main, [role="main"]) table tbody tr.cursor-pointer', more: ':is(main, [role="main"]) .col-xs-12.text-center.margin-top-medium > button',
 };
 
 export async function discover(page, {endpoint, count, selectors = defaults, timeout = 60000, onSeason = () => {}, shouldStop = () => false, initialIds = [], onUnresolved = () => {}, signal}) {
@@ -34,19 +34,30 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
   const rowCount = () => page.$$eval(selectors.rows, rows => rows.length);
   const more = async () => {
     const before = await rowCount();
-    const button = await page.$(selectors.more);
+    const candidates = await page.$$(selectors.more);
+    let button;
+    for (const candidate of candidates) {
+      const suitable = await candidate.evaluate((el, custom) => custom
+        || /^(?:show|load)?\s*more$/i.test(el.textContent.trim()), selectors.more !== defaults.more);
+      if (suitable && await candidate.boundingBox()) { button = candidate; break; }
+    }
     if (!button) return false;
-    if (await button.evaluate(el => el.disabled)) throw new Error('Archive Show more button is disabled; discovery is unfinished.');
-    if (!await button.boundingBox()) return false;
+    await button.evaluate(el => el.scrollIntoView({block:'center'}));
+    await page.waitForFunction(el => !el.disabled, {timeout}, button);
+    console.log(`Archive: Show more from ${before} rows...`);
     await button.click();
-    try { await page.waitForFunction((selector, n) => document.querySelectorAll(selector).length > n,
-      {timeout}, selectors.rows, before); return true; }
-    catch { throw new Error('Show more did not load additional rows; discovery is unfinished. Retry discovery rather than treating this as the archive end.'); }
+    try {
+      await page.waitForFunction((selector, n) => document.querySelectorAll(selector).length > n,
+        {timeout}, selectors.rows, before);
+      console.log(`Archive: now ${await rowCount()} rows.`);
+      return true;
+    } catch {
+      const label = await button.evaluate(el => el.textContent.trim()).catch(() => 'removed');
+      throw new Error(`Show more did not load additional rows (${before} rows, button: ${label}). Discovered IDs are saved; use --resume to collect them.`);
+    }
   };
   await openArchive();
   console.log(`Archive: found ${await rowCount()} season rows.`);
-  // Expand the archive before resolving rows so the requested window is visible.
-  while (await rowCount() < count) { if (!await more()) break; }
   // Load enough archive rows (including headers/duplicates) and keep loading if unique IDs fall short.
   const ids = topDown(initialIds, count), inspected = new Set();
   let pages = 0;
@@ -83,7 +94,8 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
               };
             }
           });
-          await page.$$eval(selectors.rows, (elements, index) => elements[index].click(), row.index);
+          const handle = (await page.$$(selectors.rows))[row.index];
+          await handle.click();
           try {
             await page.waitForFunction(previous => location.href !== previous || window.__tradeRoute,
               {timeout:Math.min(timeout, 10000)}, before);
