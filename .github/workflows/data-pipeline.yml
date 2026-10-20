@@ -8,7 +8,7 @@ jobs:
       - run: cp engine/.env.example engine/.env
       - run: docker compose -f engine/compose.yaml build
       - name: Puppeteer discovery checks
-        run: docker compose -f engine/compose.yaml run --rm --no-deps --entrypoint sh collector -c 'cd /app/discovery && node --test tests/*.test.mjs'
+        run: docker compose -f engine/compose.yaml run --rm -T --no-deps --entrypoint sh collector -c 'cd /app/discovery && node --test tests/*.test.mjs'
       - name: PHP syntax and pipeline checks
         run: |
           docker compose -f engine/compose.yaml run --rm --no-deps --entrypoint sh app -c 'find app routes config bootstrap tests -name "*.php" -exec php -l {} \; && php tests/data_pipeline.php'

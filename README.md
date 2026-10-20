@@ -69,7 +69,7 @@ Results use H/D/A. Legacy 1/x/2 results and singular `_odd` fields are converted
 ```sh
 docker compose -f engine/compose.yaml run --rm --entrypoint php app tests/data_pipeline.php
 docker compose -f engine/compose.yaml run --rm --entrypoint php app tests/season_collection.php
-docker compose -f engine/compose.yaml run --rm --no-deps --entrypoint node collector --test /app/discovery/tests/*.test.mjs
+docker compose -f engine/compose.yaml run --rm -T --no-deps --entrypoint node collector --test /app/discovery/tests/*.test.mjs
 ```
 
 The root `.env` was removed from tracking. If it held real credentials, rotate them; removing the current file does not erase Git history. Historical collections are preserved; there are no destructive migrations.
