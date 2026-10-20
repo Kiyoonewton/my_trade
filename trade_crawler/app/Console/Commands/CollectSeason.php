@@ -57,6 +57,7 @@ class CollectSeason extends Command
                     $this->info("{$season}: repaired matchday {$day}.");
                 } catch (\Throwable $e) {
                     $this->warn("INCOMPLETE {$season}, matchday {$day}: ".$e->getMessage());
+                    break; // Keep progress; let the batch move on to the next season.
                 }
             }
             $final = $store->rows($season, $competition);

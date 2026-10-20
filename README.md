@@ -29,7 +29,7 @@ The league default is **30 matchdays × 8 matches = 240 unique settled matches p
 
 - Already complete in MongoDB: print `SKIP` and do not fetch it again.
 - Incomplete: retain valid matchdays and fetch missing/invalid matchdays.
-- API missing, invalid or unsettled: print `INCOMPLETE`, keep stored progress and continue with later matchdays and seasons.
+- API missing, invalid or unsettled: print `INCOMPLETE`, keep stored progress and move on to the next season.
 - Exact duplicate fixture rows: collapse to one row and enforce a unique fixture key on subsequent writes.
 - A shared collection lock serializes database repairs; unique fixture keys also prevent duplicate inserts.
 - At the end: print complete/skipped and incomplete totals. Exit code 2 means some seasons remain incomplete; discovery/setup failures use code 1.
