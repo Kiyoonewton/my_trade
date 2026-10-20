@@ -5,6 +5,17 @@ export const defaults = {
   league: '', archive: '', rows: ':is(main, [role="main"]) table tbody tr.cursor-pointer', more: ':is(main, [role="main"]) .col-xs-12.text-center.margin-top-medium > button',
 };
 
+async function clickStable(page, handle, timeout) {
+  // The archive uses scrolling layouts. Override smooth scrolling before calculating click coordinates.
+  await handle.evaluate(el => el.scrollIntoView({behavior:'instant', block:'center', inline:'nearest'}));
+  await page.waitForFunction(el => {
+    const box = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    return !!hit && (hit === el || el.contains(hit));
+  }, {timeout}, handle);
+  await handle.click();
+}
+
 export async function discover(page, {endpoint, count, selectors = defaults, timeout = 60000, onSeason = () => {}, shouldStop = () => false, initialIds = [], onUnresolved = () => {}, signal}) {
   const waitForArchive = async () => {
     if (selectors.rows === defaults.rows) {
@@ -30,6 +41,7 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
       await page.waitForSelector(selectors.archive, {timeout}); await page.click(selectors.archive);
     }
     await waitForArchive();
+    await page.waitForNetworkIdle({idleTime:150, timeout});
   };
   const rowCount = () => page.$$eval(selectors.rows, rows => rows.length);
   const more = async () => {
@@ -42,18 +54,23 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
       if (suitable && await candidate.boundingBox()) { button = candidate; break; }
     }
     if (!button) return false;
-    await button.evaluate(el => el.scrollIntoView({block:'center'}));
     await page.waitForFunction(el => !el.disabled, {timeout}, button);
     console.log(`Archive: Show more from ${before} rows...`);
-    await button.click();
+    const failures = [];
+    const failed = request => failures.push(`${request.failure()?.errorText}: ${request.url()}`);
+    const response = response => { if (response.status() >= 400) failures.push(`HTTP ${response.status()}: ${response.url()}`); };
+    page.on('requestfailed', failed); page.on('response', response);
     try {
+      await clickStable(page, button, timeout);
       await page.waitForFunction((selector, n) => document.querySelectorAll(selector).length > n,
         {timeout}, selectors.rows, before);
       console.log(`Archive: now ${await rowCount()} rows.`);
       return true;
-    } catch {
+    } catch (error) {
       const label = await button.evaluate(el => el.textContent.trim()).catch(() => 'removed');
-      throw new Error(`Show more did not load additional rows (${before} rows, button: ${label}). Discovered IDs are saved; use --resume to collect them.`);
+      throw new Error(`Show more did not load additional rows (${before} rows, button: ${label}; cause: ${error.message}; URL: ${page.url()}; network: ${failures.slice(-3).join(' | ') || 'no failed requests observed'}). Discovered IDs are saved; use --resume to collect them.`);
+    } finally {
+      page.off('requestfailed', failed); page.off('response', response);
     }
   };
   await openArchive();
@@ -75,47 +92,23 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
       let id = /^\d{5,}$/.test(row.dataId) ? row.dataId : seasonId(row.link);
       if (!id && row.clickable) {
         const before = page.url();
-        let navigatedId;
-        const navigation = frame => {
-          if (frame === page.mainFrame()) navigatedId = seasonId(frame.url());
-        };
-        page.on('framenavigated', navigation);
-        try {
-          // Same-URL SPA navigation is still a valid selection of the current season.
-          await page.evaluate(() => {
-            window.__tradeRoute = null;
-            window.__tradeHistory = {};
-            for (const method of ['pushState', 'replaceState']) {
-              const original = history[method];
-              window.__tradeHistory[method] = original;
-              history[method] = function (...args) {
-                window.__tradeRoute = String(args[2] ?? location.href);
-                return original.apply(this, args);
-              };
-            }
-          });
-          const handle = (await page.$$(selectors.rows))[row.index];
-          await handle.click();
-          try {
-            await page.waitForFunction(previous => location.href !== previous || window.__tradeRoute,
-              {timeout:Math.min(timeout, 10000)}, before);
-          } catch { /* A full navigation to the same URL is captured by framenavigated. */ }
-          const route = await page.evaluate(() => window.__tradeRoute).catch(() => null);
-          id = seasonId(route ?? '') ?? navigatedId ?? (page.url() !== before ? seasonId(page.url()) : null);
-        } finally {
-          page.off('framenavigated', navigation);
-          await page.evaluate(() => {
-            for (const [method, original] of Object.entries(window.__tradeHistory ?? {})) history[method] = original;
-            delete window.__tradeHistory; delete window.__tradeRoute;
-          }).catch(() => {});
-        }
+        const handle = (await page.$$(selectors.rows))[row.index];
+        const cell = await handle.$('td');
+        // Subscribe before clicking; URL changes alone do not mean the SPA has finished rendering.
+        const navigation = page.waitForNavigation({waitUntil:'networkidle2', timeout:Math.min(timeout, 15000)})
+          .catch(error => { if (error.name !== 'TimeoutError') throw error; });
+        await clickStable(page, cell ?? handle, timeout);
+        await navigation;
+        if (page.url() !== before) id = seasonId(page.url());
         if (!id) {
           console.warn(`Archive row ${row.index + 1} did not expose a season ID; continuing with other rows.`);
           await onUnresolved(row.index + 1);
         }
         if (page.url() !== before) {
-          await page.goBack({waitUntil:'domcontentloaded', timeout});
+          await page.goBack({waitUntil:'networkidle2', timeout});
+          await page.waitForFunction(url => location.href === url, {timeout}, before);
           await waitForArchive();
+          await page.waitForNetworkIdle({idleTime:350, timeout});
           while (await rowCount() < rows.length) {
             if (!await more()) throw new Error('Could not restore loaded archive rows.');
           }

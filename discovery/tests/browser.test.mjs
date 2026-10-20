@@ -32,7 +32,7 @@ test('Puppeteer loads archive pages and returns 85 unique IDs top to bottom', {s
 });
 
 test('real provider div role=main supports clickable rows and fewer than 85 seasons', {skip:!process.env.CHROMIUM_PATH}, async()=>{
- const html=`<!doctype html><div role="main"><table><thead><tr><th>Season</th><th>Champion</th></tr></thead><tbody>
+ const html=`<!doctype html><style>html{scroll-behavior:smooth}td{height:160px}</style><div role="main"><table><thead><tr><th>Season</th><th>Champion</th></tr></thead><tbody>
  ${['3147738','3147737','3147736'].map(id=>`<tr class="cursor-pointer" onclick="location.href='/season/${id}'"><td>League ${id}</td></tr>`).join('')}
  </tbody></table></div>`;
  const server=createServer((req,res)=>{res.setHeader('Content-Type','text/html');res.end(html)});
@@ -56,7 +56,7 @@ test('access denial is reported immediately rather than as a selector timeout', 
  } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}
 });
 
-test('same-URL current row and unresolved row do not block older seasons', {skip:!process.env.CHROMIUM_PATH}, async()=>{
+test('no-op rows are reported without blocking older seasons', {skip:!process.env.CHROMIUM_PATH}, async()=>{
  const html=`<!doctype html><table><tbody id="rows">
  <tr onclick="history.pushState({},'',location.href)"><td>Current</td></tr>
  <tr><td>Unavailable row</td></tr>
@@ -69,7 +69,7 @@ test('same-URL current row and unresolved row do not block older seasons', {skip
   const page=await browser.newPage();const unresolved=[];
   const ids=await discover(page,{endpoint:`http://127.0.0.1:${server.address().port}/season/10003/archive`,count:85,timeout:200,
    selectors:{league:'',archive:'',rows:'#rows tr',more:'#more'},initialIds:['10003'],onUnresolved:row=>unresolved.push(row)});
-  assert.deepEqual(ids,['10003','10002']);assert.deepEqual(unresolved,[2]);
+  assert.deepEqual(ids,['10003','10002']);assert.deepEqual(unresolved,[1,2]);
  } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}
 });
 
@@ -85,5 +85,21 @@ test('real pagination container ignores unrelated buttons and preserves IDs on p
   const page=await browser.newPage();const saved=[];
   await assert.rejects(()=>discover(page,{endpoint:`http://127.0.0.1:${server.address().port}/archive`,count:85,timeout:300,onSeason:id=>saved.push(id)}),/Discovered IDs are saved/);
   assert.deepEqual(saved,['10003','10002']);
+ } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}
+});
+
+
+test('delayed SPA archive return and smooth scrolling resolve every row', {skip:!process.env.CHROMIUM_PATH}, async()=>{
+ const html=`<!doctype html><style>html{scroll-behavior:smooth}td{height:220px}</style>
+ <div role="main"><table><thead><tr><th>Season</th><th>Champion</th></tr></thead><tbody>
+ ${['10006','10005','10004','10003','10002','10001'].map(id=>`<tr class="cursor-pointer" onclick="if(!window.busy)history.pushState({},'', '/season/${id}')"><td>League ${id}</td><td><span onclick="event.stopPropagation()">Champion</span></td></tr>`).join('')}
+ </tbody></table></div><script>window.onpopstate=()=>{window.busy=true;setTimeout(()=>window.busy=false,250)}</script>`;
+ const server=createServer((req,res)=>{res.setHeader('Content-Type','text/html');res.end(html)});
+ await new Promise(r=>server.listen(0,'0.0.0.0',r));let browser;
+ try {
+  browser=await puppeteer.launch({executablePath:process.env.CHROMIUM_PATH,args:['--no-sandbox'],headless:true});
+  const page=await browser.newPage();const unresolved=[];
+  const ids=await discover(page,{endpoint:`http://127.0.0.1:${server.address().port}/archive`,count:6,timeout:3000,onUnresolved:row=>unresolved.push(row)});
+  assert.deepEqual(ids,['10006','10005','10004','10003','10002','10001']);assert.deepEqual(unresolved,[]);
  } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}
 });
