@@ -1,14 +1,20 @@
-import {oldestFirst, seasonId} from './seasons.mjs';
+import {topDown, seasonId} from './seasons.mjs';
 
-const container = '#sr-container > div > div > div.container.container-main.contair-full-height-flex-auto > div > div > div > div > div.panel.margin-bottom > div > div';
+// The supplied URL opens the archive directly; no league tab navigation is needed.
 export const defaults = {
-  league: '#sr-container > div > div > div.container.container-main.contair-full-height-flex-auto > div > div > div > div > div > span > div > div > div > div > div > a:nth-child(7)',
-  archive: '#sr-container > div > div > div.menu-wrapper.menu-full-width-bg.menu-mobile-top.menu-mobile-sticky > div.container.no-padding > ul > li:nth-child(6) > a',
-  rows: `${container} > div:nth-child(1) > table > tbody > tr`,
-  more: `${container} > div.col-xs-12.text-center.margin-top-medium > button`,
+  league: '', archive: '', rows: 'main table tbody tr.cursor-pointer', more: 'main button',
 };
 
-export async function discover(page, {endpoint, count, selectors = defaults, timeout = 20000}) {
+export async function discover(page, {endpoint, count, selectors = defaults, timeout = 60000}) {
+  const waitForArchive = async () => {
+    if (selectors.rows === defaults.rows) {
+      await page.waitForFunction(() => {
+        const headings = [...document.querySelectorAll('main th')].map(el => el.textContent.trim());
+        return headings.includes('Season') && headings.includes('Champion');
+      }, {timeout});
+    }
+    await page.waitForSelector(selectors.rows, {timeout});
+  };
   const openArchive = async () => {
     await page.goto(endpoint, {waitUntil:'domcontentloaded', timeout});
     if (selectors.league) {
@@ -17,13 +23,14 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
     if (selectors.archive) {
       await page.waitForSelector(selectors.archive, {timeout}); await page.click(selectors.archive);
     }
-    await page.waitForSelector(selectors.rows, {timeout});
+    await waitForArchive();
   };
   const rowCount = () => page.$$eval(selectors.rows, rows => rows.length);
   const more = async () => {
     const before = await rowCount();
     const button = await page.$(selectors.more);
     if (!button) return false;
+    if (await button.evaluate(el => el.disabled)) return false;
     if (!await button.boundingBox()) return false;
     await button.click();
     try { await page.waitForFunction((selector, n) => document.querySelectorAll(selector).length > n,
@@ -52,15 +59,22 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
           id = seasonId(page.url());
         } catch { /* Non-season rows are ignored. */ }
         if (page.url() !== before) {
-          await openArchive();
+          await page.goBack({waitUntil:'domcontentloaded', timeout});
+          await waitForArchive();
           while (await rowCount() < rows.length) {
             if (!await more()) throw new Error('Could not restore loaded archive rows.');
           }
         }
       }
-      if (id) ids.push(id);
-      if (new Set(ids).size >= count) return oldestFirst(ids, count);
+      if (id && !ids.includes(id)) {
+        ids.push(id); console.log(`Discovered season ${id} (${ids.length}/${count})`);
+      }
+      if (new Set(ids).size >= count) return topDown(ids, count);
     }
-    if (++pages > 30 || !await more()) return oldestFirst(ids, count);
+    if (++pages > 30) throw new Error('Archive pagination exceeded safety limit.');
+    if (!await more()) {
+      if (!ids.length) throw new Error('No season IDs found in the archive.');
+      return topDown(ids, count);
+    }
   }
 }

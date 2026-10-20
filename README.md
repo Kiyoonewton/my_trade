@@ -16,14 +16,18 @@ No database ports are published. The default named volume starts a **new empty d
 
 ## Discover and collect 85 seasons
 
-Set `SEASON_ENDPOINT` in `engine/.env` to your football **website archive entry page**, not the `/feeds/` JSON endpoint. The previous repository did not retain this value. Discovery uses the old league tab (seventh tab) and archive selectors; use the optional `ARCHIVE_*_SELECTOR` environment overrides for a different layout. Set an empty league/archive selector to skip that click when your URL opens the archive directly.
+Run the collector from an interactive terminal:
 
 ```sh
 docker compose -f engine/compose.yaml build
 docker compose -f engine/compose.yaml run --rm collector 85
 ```
 
-Puppeteer loads archive pages until it finds 85 **unique** season IDs, then processes the selected seasons **oldest to newest**, based on the archive's newest-first display order (not numeric ID order). It writes the exact ID list into `raw/seasons-*.json` before collection. If fewer than 85 are available, discovery fails explicitly without starting collection; pass a smaller count if desired.
+Every run prompts: `Current season ID or archive URL:`. Enter the numeric source ID (for example `3147738`) or the full English League archive URL. It constructs `https://st-cdn001.akamaized.net/bet9javirtuals/en/1/season/<ID>/archive`. No `SEASON_ENDPOINT` setting is needed; any old value is ignored. Do not use `-T` for the collector command.
+
+Puppeteer opens the archive directly, scans **top to bottom**, clicks `Show more` as needed, and removes repeated source IDs. `85` is a **maximum**, not a required count: when the archive ends, it processes however many unique seasons were found. Collection preserves that same top-to-bottom order; it no longer reverses the list. The source season ID comes from row navigation, not the displayed league number.
+
+The exact archive URL and selected ID list are saved in `raw/seasons-*.json`. The 240-match database skip, repair and deduplication rules are unchanged. Optional `ARCHIVE_*_SELECTOR` overrides remain available, but the defaults target the observed direct archive table and buttons.
 
 The league default is **30 matchdays × 8 matches = 240 unique settled matches per season**. There is no assumption about how many seasons occur in a calendar day.
 
@@ -32,7 +36,10 @@ The league default is **30 matchdays × 8 matches = 240 unique settled matches p
 - API missing, invalid or unsettled: print `INCOMPLETE`, keep stored progress and move on to the next season.
 - Exact duplicate fixture rows: collapse to one row and enforce a unique fixture key on subsequent writes.
 - A shared collection lock serializes database repairs; unique fixture keys also prevent duplicate inserts.
-- At the end: print complete/skipped and incomplete totals. Exit code 2 means some seasons remain incomplete; discovery/setup failures use code 1.
+- Stop after three consecutive uncrawlable/incomplete seasons. A complete/skipped season resets this streak.
+- Network failures (connection errors, HTTP 408/429/5xx) retry three times, print `NETWORK`, then continue without increasing or resetting the uncrawlable streak. They are not treated as missing historical data.
+- Database/configuration errors stop immediately instead of being misclassified as unavailable seasons.
+- At the end: print complete/skipped, incomplete and network totals. Batch exit code 2 means incomplete/network results; setup failures use code 1. The internal single-season command uses exit 0 for complete, 2 for network failure, 3 for incomplete data and 1 for local/configuration failure.
 
 The unique identity is competition + season + matchday + home + away. Legacy untagged rows for the requested season are adopted into the configured competition. Back up your database before the first run: only exact duplicate fixture identities are removed, retaining the newest row. Unexpected extra fixtures are preserved and reported as incomplete rather than deleted. A season is complete only after all 30 matchdays pass validation, not just because its raw count happens to be 240.
 
@@ -62,7 +69,7 @@ Results use H/D/A. Legacy 1/x/2 results and singular `_odd` fields are converted
 ```sh
 docker compose -f engine/compose.yaml run --rm --entrypoint php app tests/data_pipeline.php
 docker compose -f engine/compose.yaml run --rm --entrypoint php app tests/season_collection.php
-docker compose -f engine/compose.yaml run --rm --no-deps --entrypoint node collector --test /app/discovery/tests/*.test.mjs
+docker compose -f engine/compose.yaml run --rm -T --no-deps --entrypoint node collector --test /app/discovery/tests/*.test.mjs
 ```
 
 The root `.env` was removed from tracking. If it held real credentials, rotate them; removing the current file does not erase Git history. Historical collections are preserved; there are no destructive migrations.
