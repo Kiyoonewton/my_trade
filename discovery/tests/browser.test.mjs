@@ -28,10 +28,10 @@ test('Puppeteer loads archive pages and returns 85 unique IDs top to bottom', {s
  } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}
 });
 
-test('direct archive defaults support clickable rows without links and fewer than 85 seasons', {skip:!process.env.CHROMIUM_PATH}, async()=>{
- const html=`<!doctype html><main><table><thead><tr><th>Season</th><th>Champion</th></tr></thead><tbody>
+test('real provider div role=main supports clickable rows and fewer than 85 seasons', {skip:!process.env.CHROMIUM_PATH}, async()=>{
+ const html=`<!doctype html><div role="main"><table><thead><tr><th>Season</th><th>Champion</th></tr></thead><tbody>
  ${['3147738','3147737','3147736'].map(id=>`<tr class="cursor-pointer" onclick="location.href='/season/${id}'"><td>League ${id}</td></tr>`).join('')}
- </tbody></table></main>`;
+ </tbody></table></div>`;
  const server=createServer((req,res)=>{res.setHeader('Content-Type','text/html');res.end(html)});
  await new Promise(r=>server.listen(0,'0.0.0.0',r));let browser;
  try {

@@ -25,9 +25,9 @@ docker compose -f engine/compose.yaml run --rm collector 85
 
 Every run prompts: `Current season ID or archive URL:`. Enter the numeric source ID (for example `3147738`) or the full English League archive URL. It constructs `https://st-cdn001.akamaized.net/bet9javirtuals/en/1/season/<ID>/archive`. No `SEASON_ENDPOINT` setting is needed; any old value is ignored. Do not use `-T` for the collector command.
 
-Puppeteer opens the archive directly, scans **top to bottom**, clicks `Show more` as needed, and removes repeated source IDs. `85` is a **maximum**, not a required count: when the archive ends, it processes however many unique seasons were found. Collection preserves that same top-to-bottom order; it no longer reverses the list. The source season ID comes from row navigation, not the displayed league number.
+The source season ID is extracted from your input and sent to the API immediately. In parallel, Puppeteer opens the archive directly, scans **top to bottom**, clicks `Show more` as needed, and removes repeated source IDs. `85` is a **maximum**, not a required count: when the archive ends, it processes however many unique seasons were found. Collection processes the supplied current season first, then additional seasons in top-to-bottom order as Puppeteer queues them; duplicate IDs (including the current season) are skipped. The maximum count includes the current season. The source season ID comes from row navigation, not the displayed league number.
 
-The exact archive URL and selected ID list are saved in `raw/seasons-*.json`. The 240-match database skip, repair and deduplication rules are unchanged. Optional `ARCHIVE_*_SELECTOR` overrides remain available, but the defaults target the observed direct archive table and buttons.
+The exact archive URL, queued IDs and processed statuses are saved progressively in `raw/seasons-*.json`, including when discovery fails after the current season was processed. The 240-match database skip, repair and deduplication rules are unchanged. Optional `ARCHIVE_*_SELECTOR` overrides remain available, but the defaults target the observed direct archive table and buttons.
 
 The league default is **30 matchdays × 8 matches = 240 unique settled matches per season**. There is no assumption about how many seasons occur in a calendar day.
 
