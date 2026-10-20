@@ -26,11 +26,15 @@ npm ci
 npm run collect -- 85
 ```
 
-Enter the current season ID or full archive URL at the prompt. The supplied season goes straight to the API. Local Puppeteer opens a visible Chrome window, scans archive rows and clicks Show more to discover additional IDs. Don't navigate or close the managed window while discovery is running. The browser closes when discovery finishes or collection stops early.
+Enter the current season ID or full archive URL at the prompt. Puppeteer opens visible Chrome, scans archive rows and clicks Show more to discover up to 85 unique season IDs. It stops at an already completed season, so a later run may discover only 3 or 10 new seasons. Do not navigate or close the managed window during discovery. **Discovery finishes and saves the plan before API collection starts.** The browser then closes; API collection continues independently, oldest to newest according to archive order.
 
-This Mac mode uses the standard Google Chrome application path; set `CHROMIUM_PATH` if Chrome is installed elsewhere. It uses a fresh temporary browser profile with no stealth or fingerprint modifications. If the server denies access, collection of the supplied season still runs and discovery reports the restriction. No claim is made that a visible browser will always be permitted.
+This Mac mode uses the standard Google Chrome application path; set `CHROMIUM_PATH` if Chrome is installed elsewhere. If discovery fails or the server denies access, saved progress remains available. Resume saved pending seasons without opening Chrome or entering a current season:
 
-The host Node runner invokes `docker compose run --rm -T app matches:collect ...` for each queued season. Do not run a separate collector simultaneously. The 85-season maximum, unique IDs, 240-match repair/skip checks and three-uncrawlable-season stop rule are shared with Docker mode. Manifests stay in the root `raw/` folder.
+```sh
+npm run collect -- --resume
+```
+
+The host Node runner invokes `docker compose run --rm -T app matches:collect ...` for each pending season. Do not run separate collectors simultaneously. Keep `raw/` and the MongoDB volume together: the per-competition `raw/collection-progress-*.json` records completed seasons and pending work. Successful seasons are not requested again by the batch runner. Existing `raw/seasons-*.json` manifests are imported automatically, including their completed seasons, network failures and unprocessed IDs. If you intentionally replace/restore the database, move the progress file and old manifests aside to let MongoDB verify seasons again.
 
 ## Discover and collect 85 seasons
 
@@ -43,9 +47,15 @@ docker compose -f engine/compose.yaml run --rm collector 85
 
 Every run prompts: `Current season ID or archive URL:`. Enter the numeric source ID (for example `3147738`) or the full English League archive URL. It constructs `https://st-cdn001.akamaized.net/bet9javirtuals/en/1/season/<ID>/archive`. No `SEASON_ENDPOINT` setting is needed; any old value is ignored. Do not use `-T` for the collector command.
 
-The source season ID is extracted from your input and sent to the API immediately. In parallel, Puppeteer opens the archive directly, scans **top to bottom**, clicks `Show more` as needed, and removes repeated source IDs. `85` is a **maximum**, not a required count: when the archive ends, it processes however many unique seasons were found. Collection processes the supplied current season first, then additional seasons in top-to-bottom order as Puppeteer queues them; duplicate IDs (including the current season) are skipped. The maximum count includes the current season. The source season ID comes from row navigation, not the displayed league number.
+The current source ID is included in the discovery plan. Puppeteer scans **newest to oldest**, clicks Show more as needed and stops at the first previously completed season. `85` is a maximum, not a required count; discovery can return fewer seasons. API collection reverses archive order to run **oldest to newest**, including any previously pending failures. Numeric source IDs are never used to infer chronology. The source ID comes from row navigation, not the displayed league number.
 
-The exact archive URL, queued IDs and processed statuses are saved progressively in `raw/seasons-*.json`, including when discovery fails after the current season was processed. The 240-match database skip, repair and deduplication rules are unchanged. Optional `ARCHIVE_*_SELECTOR` overrides remain available, but the defaults target the observed direct archive table and buttons.
+The plan is saved before collection in `raw/seasons-*.json`. The durable progress file is updated atomically after every season attempt; only a successful 240-match validation marks a season complete. Interrupted, network-failed and incomplete seasons remain pending. `--resume` uses this saved queue without Chrome. A stalled Show more request reports unfinished discovery instead of silently claiming the archive has ended.
+
+Docker-only resume:
+
+```sh
+docker compose -f engine/compose.yaml run --rm collector --resume
+```
 
 The league default is **30 matchdays × 8 matches = 240 unique settled matches per season**. There is no assumption about how many seasons occur in a calendar day.
 
@@ -55,7 +65,7 @@ The league default is **30 matchdays × 8 matches = 240 unique settled matches p
 - Exact duplicate fixture rows: collapse to one row and enforce a unique fixture key on subsequent writes.
 - A shared collection lock serializes database repairs; unique fixture keys also prevent duplicate inserts.
 - Stop after three consecutive uncrawlable/incomplete seasons. A complete/skipped season resets this streak.
-- Network failures (connection errors, HTTP 408/429/5xx) retry three times, print `NETWORK`, then continue without increasing or resetting the uncrawlable streak. They are not treated as missing historical data.
+- Network failures (connection errors, HTTP 408/429/5xx) receive the API client retries, then up to two additional season attempts after 2s and 5s. Already saved valid matchdays are reused. Exhausted failures remain pending, print `NETWORK`, then continue without increasing or resetting the uncrawlable streak. They are not treated as missing historical data.
 - Database/configuration errors stop immediately instead of being misclassified as unavailable seasons.
 - At the end: print complete/skipped, incomplete and network totals. Batch exit code 2 means incomplete/network results; setup failures use code 1. The internal single-season command uses exit 0 for complete, 2 for network failure, 3 for incomplete data and 1 for local/configuration failure.
 
