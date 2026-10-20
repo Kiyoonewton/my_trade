@@ -54,6 +54,8 @@ class MatchExport
             if ($format === 'json') { fwrite($file, "\n]\n"); }
             if (!fflush($file)) { throw new RuntimeException('Could not flush export.'); }
             fclose($file); $file = null;
+            // tempnam creates mode 0600; exports must also be readable on the host.
+            if (!chmod($temporary, 0644)) { throw new RuntimeException('Cannot set export permissions.'); }
             // Hard-link publishes atomically without overwriting an existing destination.
             if (!link($temporary, $path)) { throw new RuntimeException('Cannot publish output.'); }
             return $count;
