@@ -2,10 +2,19 @@ import {topDown, seasonId} from './seasons.mjs';
 
 // The supplied URL opens the archive directly; no league tab navigation is needed.
 export const defaults = {
-  league: '', archive: '', rows: 'main table tbody tr', more: 'main button',
+  league: '', archive: '', rows: 'main table tbody tr.cursor-pointer', more: 'main button',
 };
 
 export async function discover(page, {endpoint, count, selectors = defaults, timeout = 60000}) {
+  const waitForArchive = async () => {
+    if (selectors.rows === defaults.rows) {
+      await page.waitForFunction(() => {
+        const headings = [...document.querySelectorAll('main th')].map(el => el.textContent.trim());
+        return headings.includes('Season') && headings.includes('Champion');
+      }, {timeout});
+    }
+    await page.waitForSelector(selectors.rows, {timeout});
+  };
   const openArchive = async () => {
     await page.goto(endpoint, {waitUntil:'domcontentloaded', timeout});
     if (selectors.league) {
@@ -14,7 +23,7 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
     if (selectors.archive) {
       await page.waitForSelector(selectors.archive, {timeout}); await page.click(selectors.archive);
     }
-    await page.waitForSelector(selectors.rows, {timeout});
+    await waitForArchive();
   };
   const rowCount = () => page.$$eval(selectors.rows, rows => rows.length);
   const more = async () => {
@@ -51,7 +60,7 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
         } catch { /* Non-season rows are ignored. */ }
         if (page.url() !== before) {
           await page.goBack({waitUntil:'domcontentloaded', timeout});
-          await page.waitForSelector(selectors.rows, {timeout});
+          await waitForArchive();
           while (await rowCount() < rows.length) {
             if (!await more()) throw new Error('Could not restore loaded archive rows.');
           }
