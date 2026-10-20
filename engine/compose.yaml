@@ -3,13 +3,30 @@ services:
     build:
       context: ..
       dockerfile: engine/Dockerfile
+      target: application
     env_file: .env
     volumes:
       - ../exports:/exports
       - ../raw:/raw
+      - collection_state:/state
     depends_on:
       mongodb:
         condition: service_healthy
+  collector:
+    build:
+      context: ..
+      dockerfile: engine/Dockerfile
+      target: collector
+    env_file: .env
+    shm_size: 1gb
+    volumes:
+      - ../exports:/exports
+      - ../raw:/raw
+      - collection_state:/state
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
   mongodb:
     image: mongo:7
     volumes:
@@ -21,3 +38,4 @@ services:
       retries: 20
 volumes:
   mongo_data:
+  collection_state:
