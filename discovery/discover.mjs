@@ -10,13 +10,19 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
     if (selectors.rows === defaults.rows) {
       await page.waitForFunction(() => {
         const headings = [...document.querySelectorAll(':is(main, [role="main"]) th')].map(el => el.textContent.trim());
-        return headings.includes('Season') && headings.includes('Champion');
+        return document.body.innerText.includes('Access Denied')
+          || (headings.includes('Season') && headings.includes('Champion'));
       }, {timeout});
+      if (await page.evaluate(() => document.body.innerText.includes('Access Denied'))) {
+        throw new Error('Archive server returned Access Denied.');
+      }
     }
     await page.waitForSelector(selectors.rows, {timeout});
   };
   const openArchive = async () => {
-    await page.goto(endpoint, {waitUntil:'domcontentloaded', timeout});
+    console.log('Archive: opening page...');
+    const response = await page.goto(endpoint, {waitUntil:'domcontentloaded', timeout});
+    if (response?.status() === 403) throw new Error('Archive server returned Access Denied (HTTP 403).');
     if (selectors.league) {
       await page.waitForSelector(selectors.league, {timeout}); await page.click(selectors.league);
     }
@@ -38,6 +44,7 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
     catch { return false; }
   };
   await openArchive();
+  console.log(`Archive: found ${await rowCount()} season rows.`);
   // Load enough archive rows (including headers/duplicates) and keep loading if unique IDs fall short.
   const ids = [], inspected = new Set();
   let pages = 0;

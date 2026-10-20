@@ -41,3 +41,14 @@ test('real provider div role=main supports clickable rows and fewer than 85 seas
   assert.deepEqual(ids,['3147738','3147737','3147736']);
  } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}
 });
+
+
+test('access denial is reported immediately rather than as a selector timeout', {skip:!process.env.CHROMIUM_PATH}, async()=>{
+ const server=createServer((req,res)=>{res.writeHead(403,{'Content-Type':'text/html'});res.end('<h1>Access Denied</h1>')});
+ await new Promise(r=>server.listen(0,'0.0.0.0',r));let browser;
+ try {
+  browser=await puppeteer.launch({executablePath:process.env.CHROMIUM_PATH,args:['--no-sandbox'],headless:true});
+  const page=await browser.newPage();
+  await assert.rejects(()=>discover(page,{endpoint:`http://127.0.0.1:${server.address().port}/archive`,count:85,timeout:2000}),/Access Denied/);
+ } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}
+});
