@@ -5,7 +5,7 @@ export const defaults = {
   league: '', archive: '', rows: ':is(main, [role="main"]) table tbody tr.cursor-pointer', more: ':is(main, [role="main"]) button',
 };
 
-export async function discover(page, {endpoint, count, selectors = defaults, timeout = 60000, onSeason = () => {}, signal}) {
+export async function discover(page, {endpoint, count, selectors = defaults, timeout = 60000, onSeason = () => {}, shouldStop = () => false, initialIds = [], signal}) {
   const waitForArchive = async () => {
     if (selectors.rows === defaults.rows) {
       await page.waitForFunction(() => {
@@ -36,17 +36,17 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
     const before = await rowCount();
     const button = await page.$(selectors.more);
     if (!button) return false;
-    if (await button.evaluate(el => el.disabled)) return false;
+    if (await button.evaluate(el => el.disabled)) throw new Error('Archive Show more button is disabled; discovery is unfinished.');
     if (!await button.boundingBox()) return false;
     await button.click();
     try { await page.waitForFunction((selector, n) => document.querySelectorAll(selector).length > n,
       {timeout}, selectors.rows, before); return true; }
-    catch { return false; }
+    catch { throw new Error('Show more did not load additional rows; discovery is unfinished. Retry discovery rather than treating this as the archive end.'); }
   };
   await openArchive();
   console.log(`Archive: found ${await rowCount()} season rows.`);
   // Load enough archive rows (including headers/duplicates) and keep loading if unique IDs fall short.
-  const ids = [], inspected = new Set();
+  const ids = topDown(initialIds, count), inspected = new Set();
   let pages = 0;
   while (true) {
     if (signal?.aborted) return topDown(ids, count);
@@ -66,7 +66,7 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
         try {
           await page.waitForFunction(previous => location.href !== previous, {timeout}, before);
           id = seasonId(page.url());
-        } catch { /* Non-season rows are ignored. */ }
+        } catch { throw new Error(`Could not resolve archive row ${row.index + 1}; discovery is unfinished.`); }
         if (page.url() !== before) {
           await page.goBack({waitUntil:'domcontentloaded', timeout});
           await waitForArchive();
@@ -76,7 +76,8 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
         }
       }
       if (id && !ids.includes(id)) {
-        ids.push(id); onSeason(id); console.log(`Discovered season ${id} (${ids.length}/${count})`);
+        if (shouldStop(id)) { console.log(`Archive: reached completed season ${id}; stopping discovery.`); return topDown(ids, count); }
+        ids.push(id); await onSeason(id); console.log(`Discovered season ${id} (${ids.length}/${count})`);
       }
       if (new Set(ids).size >= count) return topDown(ids, count);
     }

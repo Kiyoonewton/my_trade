@@ -25,6 +25,9 @@ test('Puppeteer loads archive pages and returns 85 unique IDs top to bottom', {s
  selectors:{league:'',archive:'',rows:'#rows tr',more:'#more'},timeout:1000});
  assert.equal(ids.length,85); assert.equal(new Set(ids).size,85);
  assert.equal(ids[0],'3147603'); assert.equal(ids[84],'3147519');
+ const recent = await discover(page,{endpoint:`http://127.0.0.1:${server.address().port}`,count:85,
+ selectors:{league:'',archive:'',rows:'#rows tr',more:'#more'},timeout:1000,shouldStop:id=>id==='3147600'});
+ assert.deepEqual(recent,['3147603','3147602','3147601']);
  } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}
 });
 
