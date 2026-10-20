@@ -27,35 +27,36 @@ try {
     const endpoint = await promptForArchive();
     manifest.archive_url = endpoint;
     const currentId = seasonId(endpoint);
-    if (progress.seasons[currentId]?.status === 'complete') {
-      console.log(`Current season ${currentId} is already complete; no older discovery needed.`);
-    } else {
-      let browser;
-      try {
-        browser = await puppeteer.launch(config.launchOptions);
-        const page = await browser.newPage();
-        const selectors = Object.fromEntries(Object.entries(defaults).map(([key, value]) =>
-          [key, process.env[`ARCHIVE_${key.toUpperCase()}_SELECTOR`] ?? value]));
-        console.log(`Discovering up to ${count} seasons before API collection...`);
-        // Include the supplied current season even if the archive only lists previous seasons.
-        manifest.discovery_ids.push(currentId);
-        addDiscovered(progress, manifest.discovery_ids);
-        await saveJson(path, progress);
-        if (count > 1) await discover(page, {endpoint, count, selectors, initialIds:[currentId],
-          shouldStop:id => progress.seasons[id]?.status === 'complete',
-          onSeason:async id => {
-            if (!manifest.discovery_ids.includes(id)) manifest.discovery_ids.push(id);
-            manifest.discovery_ids = manifest.discovery_ids.slice(0, count);
-            addDiscovered(progress, manifest.discovery_ids);
-            await saveJson(path, progress);
-            await saveJson(manifestPath, manifest);
-          },
-        });
-        manifest.discovery_complete = true;
-      } finally {
-        if (browser) await browser.close();
-      }
+    let browser;
+    try {
+      browser = await puppeteer.launch(config.launchOptions);
+      const page = await browser.newPage();
+      const selectors = Object.fromEntries(Object.entries(defaults).map(([key, value]) =>
+        [key, process.env[`ARCHIVE_${key.toUpperCase()}_SELECTOR`] ?? value]));
+      console.log(`Discovering up to ${count} seasons before API collection...`);
+      // Include the supplied current season even if the archive only lists previous seasons.
+      manifest.discovery_ids.push(currentId);
+      addDiscovered(progress, manifest.discovery_ids);
+      await saveJson(path, progress);
+      if (count > 1) await discover(page, {endpoint, count, selectors, initialIds:[currentId],
+        onUnresolved:async row => { (manifest.unresolved_rows ??= []).push(row); },
+        onSeason:async id => {
+          if (!manifest.discovery_ids.includes(id)) manifest.discovery_ids.push(id);
+          manifest.discovery_ids = manifest.discovery_ids.slice(0, count);
+          addDiscovered(progress, manifest.discovery_ids);
+          await saveJson(path, progress);
+          await saveJson(manifestPath, manifest);
+        },
+      });
+      manifest.discovery_complete = !(manifest.unresolved_rows?.length);
+    } finally {
+      if (browser) await browser.close();
     }
+  }
+  console.log(`Storage: ${Object.values(progress.seasons).filter(row => row.status === 'complete').length} completed seasons recorded; these will not be collected again.`);
+  if (manifest.unresolved_rows?.length) {
+    console.warn(`Discovery warning: ${manifest.unresolved_rows.length} rows could not be resolved; see manifest. Collecting saved IDs only.`);
+    process.exitCode = 2;
   }
   manifest.season_ids = pendingOldestFirst(progress);
   await saveJson(manifestPath, manifest);

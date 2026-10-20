@@ -5,7 +5,7 @@ export const defaults = {
   league: '', archive: '', rows: ':is(main, [role="main"]) table tbody tr.cursor-pointer', more: ':is(main, [role="main"]) button',
 };
 
-export async function discover(page, {endpoint, count, selectors = defaults, timeout = 60000, onSeason = () => {}, shouldStop = () => false, initialIds = [], signal}) {
+export async function discover(page, {endpoint, count, selectors = defaults, timeout = 60000, onSeason = () => {}, shouldStop = () => false, initialIds = [], onUnresolved = () => {}, signal}) {
   const waitForArchive = async () => {
     if (selectors.rows === defaults.rows) {
       await page.waitForFunction(() => {
@@ -45,6 +45,8 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
   };
   await openArchive();
   console.log(`Archive: found ${await rowCount()} season rows.`);
+  // Expand the archive before resolving rows so the requested window is visible.
+  while (await rowCount() < count) { if (!await more()) break; }
   // Load enough archive rows (including headers/duplicates) and keep loading if unique IDs fall short.
   const ids = topDown(initialIds, count), inspected = new Set();
   let pages = 0;
@@ -62,11 +64,43 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
       let id = /^\d{5,}$/.test(row.dataId) ? row.dataId : seasonId(row.link);
       if (!id && row.clickable) {
         const before = page.url();
-        await page.$$eval(selectors.rows, (elements, index) => elements[index].click(), row.index);
+        let navigatedId;
+        const navigation = frame => {
+          if (frame === page.mainFrame()) navigatedId = seasonId(frame.url());
+        };
+        page.on('framenavigated', navigation);
         try {
-          await page.waitForFunction(previous => location.href !== previous, {timeout}, before);
-          id = seasonId(page.url());
-        } catch { throw new Error(`Could not resolve archive row ${row.index + 1}; discovery is unfinished.`); }
+          // Same-URL SPA navigation is still a valid selection of the current season.
+          await page.evaluate(() => {
+            window.__tradeRoute = null;
+            window.__tradeHistory = {};
+            for (const method of ['pushState', 'replaceState']) {
+              const original = history[method];
+              window.__tradeHistory[method] = original;
+              history[method] = function (...args) {
+                window.__tradeRoute = String(args[2] ?? location.href);
+                return original.apply(this, args);
+              };
+            }
+          });
+          await page.$$eval(selectors.rows, (elements, index) => elements[index].click(), row.index);
+          try {
+            await page.waitForFunction(previous => location.href !== previous || window.__tradeRoute,
+              {timeout:Math.min(timeout, 10000)}, before);
+          } catch { /* A full navigation to the same URL is captured by framenavigated. */ }
+          const route = await page.evaluate(() => window.__tradeRoute).catch(() => null);
+          id = seasonId(route ?? '') ?? navigatedId ?? (page.url() !== before ? seasonId(page.url()) : null);
+        } finally {
+          page.off('framenavigated', navigation);
+          await page.evaluate(() => {
+            for (const [method, original] of Object.entries(window.__tradeHistory ?? {})) history[method] = original;
+            delete window.__tradeHistory; delete window.__tradeRoute;
+          }).catch(() => {});
+        }
+        if (!id) {
+          console.warn(`Archive row ${row.index + 1} did not expose a season ID; continuing with other rows.`);
+          await onUnresolved(row.index + 1);
+        }
         if (page.url() !== before) {
           await page.goBack({waitUntil:'domcontentloaded', timeout});
           await waitForArchive();
