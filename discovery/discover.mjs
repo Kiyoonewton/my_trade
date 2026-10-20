@@ -2,14 +2,14 @@ import {topDown, seasonId} from './seasons.mjs';
 
 // The supplied URL opens the archive directly; no league tab navigation is needed.
 export const defaults = {
-  league: '', archive: '', rows: 'main table tbody tr.cursor-pointer', more: 'main button',
+  league: '', archive: '', rows: ':is(main, [role="main"]) table tbody tr.cursor-pointer', more: ':is(main, [role="main"]) button',
 };
 
-export async function discover(page, {endpoint, count, selectors = defaults, timeout = 60000}) {
+export async function discover(page, {endpoint, count, selectors = defaults, timeout = 60000, onSeason = () => {}, signal}) {
   const waitForArchive = async () => {
     if (selectors.rows === defaults.rows) {
       await page.waitForFunction(() => {
-        const headings = [...document.querySelectorAll('main th')].map(el => el.textContent.trim());
+        const headings = [...document.querySelectorAll(':is(main, [role="main"]) th')].map(el => el.textContent.trim());
         return headings.includes('Season') && headings.includes('Champion');
       }, {timeout});
     }
@@ -42,12 +42,14 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
   const ids = [], inspected = new Set();
   let pages = 0;
   while (true) {
+    if (signal?.aborted) return topDown(ids, count);
     const rows = await page.$$eval(selectors.rows, elements => elements.map((row, index) => ({
       index, link: row.querySelector('a[href]')?.href ?? '',
       dataId: row.getAttribute('data-season-id') ?? '',
       clickable: !!row.querySelector('td') && (!!row.querySelector('a,td') || !!row.onclick),
     })));
     for (const row of rows) {
+      if (signal?.aborted) return topDown(ids, count);
       if (inspected.has(row.index)) continue;
       inspected.add(row.index);
       let id = /^\d{5,}$/.test(row.dataId) ? row.dataId : seasonId(row.link);
@@ -67,7 +69,7 @@ export async function discover(page, {endpoint, count, selectors = defaults, tim
         }
       }
       if (id && !ids.includes(id)) {
-        ids.push(id); console.log(`Discovered season ${id} (${ids.length}/${count})`);
+        ids.push(id); onSeason(id); console.log(`Discovered season ${id} (${ids.length}/${count})`);
       }
       if (new Set(ids).size >= count) return topDown(ids, count);
     }

@@ -11,8 +11,10 @@ export function topDown(entries, count) {
 
 export async function collectBatch(ids, collect, log = console.log) {
   let complete = 0, incomplete = 0, networkFailures = 0, streak = 0, stopped = false;
-  for (const [index, id] of ids.entries()) {
-    log(`[${index + 1}/${ids.length}] Season ${id}`);
+  let index = 0;
+  for await (const id of ids) {
+    index++;
+    log(`[${index}/${Array.isArray(ids) ? ids.length : "queued"}] Season ${id}`);
     const result = await collect(id);
     const status = result === true ? 'complete' : result === false ? 'incomplete' : result?.status;
     if (status === 'complete') { complete++; streak = 0; }
