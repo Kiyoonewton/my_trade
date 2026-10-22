@@ -52,3 +52,18 @@ try {
 } finally {
     foreach (glob($dir.'/*') as $path) { unlink($path); } rmdir($dir);
 }
+
+$profiled = $event;
+$profiled['tournament_id'] = 'vf:tournament:34616';
+$profiled['id'] = 'vf:match:123';
+$rows = $normalizer->normalize($payload($profiled), 'german', 1, 'vf:tournament:34616');
+check($rows[0]['provider_match_id'] === 'vf:match:123', 'Keep provider fixture ID');
+try {
+    $normalizer->normalize($payload($profiled), 'euro', 1, 'vf:tournament:14149');
+    throw new LogicException('Wrong tournament accepted');
+} catch (RuntimeException $e) { check(str_contains($e->getMessage(), 'tournament'), 'League mismatch rejected'); }
+$exported = $export->row(['collected_at'=>'2026-10-22T15:00:00+00:00']);
+check($exported['competition_id'] === 'virtual-football', 'Legacy export defaults to English');
+check($exported['collected_at'] === '2026-10-22T15:00:00+00:00', 'Collection time exported');
+check($exported['kickoff'] === null, 'Never substitute collection time for kickoff');
+echo "Multi-league normalization checks passed.\n";

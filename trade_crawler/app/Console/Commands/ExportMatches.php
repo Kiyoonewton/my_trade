@@ -11,9 +11,13 @@ class ExportMatches extends Command
     {
         $query = MatchRecord::query();
         if ($this->option('season') !== null) { $query->where('season_id', $this->option('season')); }
-        if ($this->option('competition') !== null) { $query->where('competition_id', $this->option('competition')); }
+        if ($this->option('competition') === 'virtual-football') {
+            $query->where(fn ($q) => $q->where('competition_id', 'virtual-football')->orWhereNull('competition_id'));
+        } elseif ($this->option('competition') !== null) {
+            $query->where('competition_id', $this->option('competition'));
+        }
         try {
-            $count = $export->write($query->orderBy('season_id')->orderBy('matchday_id')->orderBy('_id')->cursor(),
+            $count = $export->write($query->orderBy('competition_id')->orderBy('season_id')->orderBy('matchday_id')->orderBy('_id')->cursor(),
                 $this->argument('output'), $this->option('format'));
             $this->info("Exported {$count} matches.");
             return self::SUCCESS;

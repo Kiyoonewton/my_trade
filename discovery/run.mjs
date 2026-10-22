@@ -5,23 +5,22 @@ import {discover, defaults} from './discover.mjs';
 import {collectBatch} from './seasons.mjs';
 import {promptForArchive} from './configuration.mjs';
 import {runtime} from './runtime.mjs';
+import {collectionOptions} from './leagues.mjs';
 import {loadProgress, saveJson, addDiscovered, pendingOldestFirst, retryNetwork} from './progress.mjs';
 import {join} from 'node:path';
 
-const config = runtime(process.env.MY_TRADE_LOCAL === '1');
-const resume = process.argv.includes('--resume');
-const count = Number(process.argv.slice(2).find(arg => arg !== '--resume') ?? 85);
-if (!Number.isInteger(count) || count < 1 || count > 1000) {
-  console.error('Pass a positive maximum season count (default 85), or --resume.');
-  process.exit(1);
-}
+let options;
+try { options = collectionOptions(process.argv.slice(2)); }
+catch (error) { console.error(error.message); process.exit(1); }
+const {competition, count, resume, profile} = options;
+const config = runtime(process.env.MY_TRADE_LOCAL === '1', {...process.env, COMPETITION_ID:competition});
 let manifest, manifestPath;
 try {
   await mkdir(config.rawDirectory, {recursive:true});
-  const competition = process.env.COMPETITION_ID ?? 'virtual-football';
+  console.log(`League: ${profile.name} (${competition}); ${profile.matchdays} matchdays × ${profile.matches_per_matchday} matches.`);
   const {path, progress} = await loadProgress(config.rawDirectory, competition);
-  manifestPath = join(config.rawDirectory, `seasons-${Date.now()}.json`);
-  manifest = {competition, discovered_at:new Date().toISOString(), order:'oldest-to-newest',
+  manifestPath = join(config.rawDirectory, `seasons-${Date.now()}-${competition}.json`);
+  manifest = {competition, season_format:profile, discovered_at:new Date().toISOString(), order:'oldest-to-newest',
     discovery_ids:[], season_ids:[], processed:[]};
   if (!resume) {
     const endpoint = await promptForArchive();
@@ -78,7 +77,7 @@ try {
   if (result.incomplete || result.networkFailures) process.exitCode = 2;
 } catch (error) {
   console.error(error.message);
-  console.error('Saved pending seasons can be retried without Chrome using: npm run collect -- --resume');
+  console.error(`Retry this league without Chrome: npm run collect -- --resume --competition=${competition}`);
   if (manifest) manifest.error = error.message;
   process.exitCode = 1;
 } finally {

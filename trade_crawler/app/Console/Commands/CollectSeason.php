@@ -9,17 +9,19 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 class CollectSeason extends Command
 {
-    protected $signature = 'matches:collect {season} {--competition=virtual-football} {--matchdays=30} {--matches-per-matchday=8} {--sequence=}';
+    protected $signature = 'matches:collect {season} {--competition=virtual-football} {--matchdays=} {--matches-per-matchday=} {--sequence=}';
     protected $description = 'Skip complete seasons and repair missing matchdays (default: 240 matches)';
     public function handle(MatchNormalizer $normalizer, SeasonIntegrity $integrity): int
     {
-        $days = filter_var($this->option('matchdays'), FILTER_VALIDATE_INT);
-        $expected = filter_var($this->option('matches-per-matchday'), FILTER_VALIDATE_INT);
+        $profile = config('competitions.'.$this->option('competition'), []);
+        $days = filter_var($this->option('matchdays') ?? ($profile['matchdays'] ?? null), FILTER_VALIDATE_INT);
+        $expected = filter_var($this->option('matches-per-matchday') ?? ($profile['matches_per_matchday'] ?? null), FILTER_VALIDATE_INT);
         $base = config('services.match_feed.url');
         $season = $this->argument('season');
         $competition = $this->option('competition');
         if (!$days || $days < 1 || !$expected || $expected < 1 || !$base
-            || !preg_match('/^[A-Za-z0-9_-]+$/D', $season) || !$competition) {
+            || !preg_match('/^[A-Za-z0-9_-]+$/D', $season)
+            || !is_string($competition) || !preg_match('/^[A-Za-z0-9_-]+$/D', $competition)) {
             $this->error('Set MATCH_FEED_URL, a safe season ID and positive season dimensions.');
             return self::FAILURE;
         }
@@ -55,12 +57,12 @@ class CollectSeason extends Command
                 }
                 $dir = env('RAW_DATA_DIR', '/raw');
                 if (!is_dir($dir) || !is_writable($dir)) { throw new \RuntimeException('Raw archive directory must be writable.'); }
-                $saved = file_put_contents($dir.'/'.$season.'-'.$day.'-'.bin2hex(random_bytes(6)).'.json', $response->body(), LOCK_EX);
+                $saved = file_put_contents($dir.'/'.$competition.'-'.$season.'-'.$day.'-'.bin2hex(random_bytes(6)).'.json', $response->body(), LOCK_EX);
                 if ($saved === false) { throw new \RuntimeException('Cannot archive response.'); }
                 try {
                     $data = $response->json();
                     if (!is_array($data)) { throw new \InvalidArgumentException('API response is not JSON match data.'); }
-                    $incoming = $normalizer->normalize($data, $season, $day);
+                    $incoming = $normalizer->normalize($data, $season, $day, $profile['tournament_id'] ?? null);
                     if (!$integrity->completeDay($incoming, $expected)) {
                         throw new \InvalidArgumentException('API did not supply the expected unique settled matches.');
                     }

@@ -3,7 +3,7 @@ namespace App\Services;
 use InvalidArgumentException;
 class MatchNormalizer
 {
-    public function normalize(array $data, string $season, int $matchday): array
+    public function normalize(array $data, string $season, int $matchday, ?string $tournament = null): array
     {
         $events = $data['doc'][0]['data']['odds'] ?? null;
         if (!is_array($events) || !$events) {
@@ -11,6 +11,9 @@ class MatchNormalizer
         }
         $rows = [];
         foreach ($events as $event) {
+            if ($tournament !== null && ($event['tournament_id'] ?? null) !== $tournament) {
+                throw new \RuntimeException('Feed tournament does not match the selected competition. Check the league and season ID.');
+            }
             $markets = array_values(array_filter($event['market'] ?? [],
                 fn ($market) => (string) $market['id'] === '1'));
             if (count($markets) !== 1) {
@@ -40,6 +43,10 @@ class MatchNormalizer
             $result = $winners ? ['1'=>'H', '2'=>'D', '3'=>'A'][(string) $winners[0]] : null;
             $rows[] = [
                 'season_id' => $season, 'matchday_id' => $matchday,
+                'provider_match_id' => $event['id'] ?? null,
+                'provider_tournament_id' => $event['tournament_id'] ?? null,
+                'home_team_id' => $event['teams']['home']['id'] ?? null,
+                'away_team_id' => $event['teams']['away']['id'] ?? null,
                 'home' => $home, 'away' => $away,
                 'home_odd' => (float) $outcomes['1']['odds'],
                 'draw_odd' => (float) $outcomes['2']['odds'],
