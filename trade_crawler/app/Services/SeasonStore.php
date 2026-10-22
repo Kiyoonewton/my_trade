@@ -18,9 +18,11 @@ class SeasonStore
     {
         $ids = [$season];
         if (ctype_digit($season)) { $ids[] = (int) $season; }
-        return ['season_id'=>['$in'=>$ids], '$or'=>[
-            ['competition_id'=>$competition], ['competition_id'=>null],
-        ]];
+        $filter = ['season_id'=>['$in'=>$ids]];
+        if ($competition === 'virtual-football') {
+            $filter['$or'] = [['competition_id'=>$competition], ['competition_id'=>null]];
+        } else { $filter['competition_id'] = $competition; }
+        return $filter;
     }
     public function rows(string $season, string $competition): array
     {

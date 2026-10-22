@@ -26,7 +26,7 @@ $payload = function (int $count = 8, bool $settled = true): array {
     return ['doc'=>[['data'=>['odds'=>$events]]]];
 };
 $run = function () use ($season,$competition) {
-    return Artisan::call('matches:collect', ['season'=>$season, '--competition'=>$competition]);
+    return Artisan::call('matches:collect', ['season'=>$season, '--competition'=>$competition, '--matchdays'=>30, '--matches-per-matchday'=>8]);
 };
 $fake = function (int $count = 8, bool $settled = true) use (&$requests,$payload) {
     Http::swap(new Illuminate\Http\Client\Factory);
@@ -58,12 +58,45 @@ try {
     verify($run() === 0, 'Retry repairs incomplete season');
     verify($matches->countDocuments(['season_id'=>$season]) === 240 && count($requests) === 1, 'Repair without duplicate matches');
     $duplicate = $matches->findOne(['season_id'=>$season], ['typeMap'=>['root'=>'array','document'=>'array','array'=>'array']]);
-    unset($duplicate['_id'],$duplicate['fixture_key'],$duplicate['competition_id']);
+    unset($duplicate['_id'],$duplicate['fixture_key']);
     $matches->insertOne($duplicate);
     $requests = []; $fake();
     verify($run() === 0 && $matches->countDocuments(['season_id'=>$season]) === 240, 'Legacy exact duplicate removed');
     verify(count($requests) === 0, 'Duplicate repair does not refetch complete season');
     $all = $matches->find(['season_id'=>$season], ['typeMap'=>['root'=>'array','document'=>'array','array'=>'array']])->toArray();
     verify((new SeasonIntegrity)->completeSeason($all,30,8), 'Full integrity check');
+    $legacy = $matches->findOne(['season_id'=>$season], ['typeMap'=>['root'=>'array','document'=>'array','array'=>'array']]);
+    unset($legacy['_id'], $legacy['fixture_key'], $legacy['competition_id']);
+    $legacy['home'] = 'Legacy English';
+    $legacy['away'] = 'Legacy Away';
+    $insert = $matches->insertOne($legacy);
+    $store = new App\Services\SeasonStore;
+    verify(count($store->rows($season, 'virtual-bundesliga')) === 0, 'German lookup must not adopt untagged English rows');
+    verify(count($store->rows($season, 'virtual-euro')) === 0, 'Euro lookup must not adopt untagged English rows');
+    verify(count($store->rows($season, 'virtual-football')) === 1, 'English lookup retains legacy rows');
+    $store->reconcile($season, 'virtual-bundesliga');
+    verify(!isset($matches->findOne(['_id'=>$insert->getInsertedId()])['competition_id']), 'No cross-league legacy mutation');
+    $matches->deleteOne(['_id'=>$insert->getInsertedId()]);
+    $row = ['season_id'=>$season,'matchday_id'=>1,'home'=>'Shared Home','away'=>'Shared Away',
+        'home_odd'=>2.1,'draw_odd'=>3.2,'away_odd'=>3.8,'result'=>'H','status'=>'settled'];
+    $store->save($row, 'virtual-bundesliga', null, 'test');
+    $store->save($row, 'virtual-euro', null, 'test');
+    verify(count($store->rows($season, 'virtual-bundesliga')) === 1, 'German fixture stored separately');
+    verify(count($store->rows($season, 'virtual-euro')) === 1, 'Euro fixture stored separately');
+    verify(!empty($store->rows($season, 'virtual-euro')[0]['collected_at']), 'New records have collection time');
+    $target = sys_get_temp_dir().'/trade-export-'.bin2hex(random_bytes(5)).'.json';
+    try {
+        verify(Artisan::call('matches:export', ['output'=>$target, '--format'=>'json', '--season'=>$season,
+            '--competition'=>'virtual-euro']) === 0, 'League export succeeds');
+        $exported = json_decode(file_get_contents($target), true);
+        verify(count($exported) === 1 && $exported[0]['competition_id'] === 'virtual-euro', 'Export isolates selected competition');
+        verify(!empty($exported[0]['collected_at']), 'Export preserves collection time');
+    } finally { if (file_exists($target)) { unlink($target); } }
+    $requests = [];
+    $fake();
+    verify(Artisan::call('matches:collect', ['season'=>$season, '--competition'=>'virtual-bundesliga']) === 1,
+        'Wrong feed tournament is a fatal league mismatch');
+    verify(str_contains(Artisan::output(), 'tournament'), 'Mismatch is explained');
+    verify(count($store->rows($season, 'virtual-bundesliga')) === 1, 'Mismatch did not write API rows');
     echo "Season collection database checks passed.\n";
 } finally { $matches->deleteMany(['season_id'=>$season]); }

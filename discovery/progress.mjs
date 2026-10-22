@@ -32,7 +32,7 @@ export async function loadProgress(directory, competition) {
     progress = {version:1, competition, order:[], seasons:{}, imported:[]};
   }
   // Old manifests used the default competition and did not record its name.
-  const files = (await readdir(directory)).filter(name => /^seasons-\d+\.json$/.test(name)).sort();
+  const files = (await readdir(directory)).filter(name => /^seasons-\d+(?:-[A-Za-z0-9_-]+)?\.json$/.test(name)).sort();
   for (const name of files) {
     if (progress.imported.includes(name)) continue;
     const manifest = JSON.parse(await readFile(join(directory, name), 'utf8'));

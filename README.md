@@ -45,11 +45,11 @@ docker compose -f engine/compose.yaml build
 docker compose -f engine/compose.yaml run --rm collector 85
 ```
 
-Every run prompts: `Current season ID or archive URL:`. Enter the numeric source ID (for example `3147738`) or the full English League archive URL. It constructs `https://st-cdn001.akamaized.net/bet9javirtuals/en/1/season/<ID>/archive`. No `SEASON_ENDPOINT` setting is needed; any old value is ignored. Do not use `-T` for the collector command.
+Every run prompts: `Current season ID or archive URL:`. Enter the numeric source ID (for example `3147738`) or the full selected league archive URL. It constructs `https://st-cdn001.akamaized.net/bet9javirtuals/en/1/season/<ID>/archive`. No `SEASON_ENDPOINT` setting is needed; any old value is ignored. Do not use `-T` for the collector command.
 
 The supplied URL opens the archive. Its table determines the season IDs and their order; an older URL can still display newer seasons. Puppeteer scans **newest to oldest**, clicks Show more as needed until the requested number of unique IDs is found or the archive ends. Completed IDs count toward that discovery limit, but are excluded from API collection. `85` is a maximum, not a required count; discovery can return fewer seasons. API collection reverses archive order to run **oldest to newest**, including any previously pending failures. Numeric source IDs are never used to infer chronology. The source ID comes from row navigation, not the displayed league number.
 
-The plan is saved before collection in `raw/seasons-*.json`. The durable progress file is updated atomically after every season attempt; only a successful 240-match validation marks a season complete. Interrupted, network-failed and incomplete seasons remain pending. `--resume` uses this saved queue without Chrome. A stalled Show more request reports unfinished discovery instead of silently claiming the archive has ended. Pagination targets the observed Show more container and verifies row growth. A pagination failure preserves the IDs already discovered for `--resume`. Same-URL season selections are supported. Unresolved rows are reported in the manifest and skipped so other seasons can still be discovered; the run reports a warning rather than claiming full discovery.
+The plan is saved before collection in `raw/seasons-*.json`. The durable progress file is updated atomically after every season attempt; only successful validation against the selected competition format marks a season complete. Interrupted, network-failed and incomplete seasons remain pending. `--resume` uses this saved queue without Chrome. A stalled Show more request reports unfinished discovery instead of silently claiming the archive has ended. Pagination targets the observed Show more container and verifies row growth. A pagination failure preserves the IDs already discovered for `--resume`. Same-URL season selections are supported. Unresolved rows are reported in the manifest and skipped so other seasons can still be discovered; the run reports a warning rather than claiming full discovery.
 
 Docker-only resume:
 
@@ -69,7 +69,7 @@ The league default is **30 matchdays × 8 matches = 240 unique settled matches p
 - Database/configuration errors stop immediately instead of being misclassified as unavailable seasons.
 - At the end: print complete/skipped, incomplete and network totals. Batch exit code 2 means incomplete/network results; setup failures use code 1. The internal single-season command uses exit 0 for complete, 2 for network failure, 3 for incomplete data and 1 for local/configuration failure.
 
-The unique identity is competition + season + matchday + home + away. Legacy untagged rows for the requested season are adopted into the configured competition. Back up your database before the first run: only exact duplicate fixture identities are removed, retaining the newest row. Unexpected extra fixtures are preserved and reported as incomplete rather than deleted. A season is complete only after all 30 matchdays pass validation, not just because its raw count happens to be 240.
+The unique identity is competition + season + matchday + home + away. Legacy untagged rows are adopted only into the English `virtual-football` competition; German and Euro collection never adopt them. Back up your database before the first run: only exact duplicate fixture identities are removed, retaining the newest row. Unexpected extra fixtures are preserved and reported as incomplete rather than deleted. A season is complete only after all 30 matchdays pass validation, not just because its raw count happens to be 240.
 
 To retry one known season:
 
@@ -86,9 +86,9 @@ docker compose -f engine/compose.yaml run --rm app matches:export /exports/match
 docker compose -f engine/compose.yaml run --rm app matches:export /exports/season.json --format=json --season=SEASON_ID
 ```
 
-Optional `--competition=vfl` filters new tagged records. Legacy records without that field are included when no competition filter is specified. Files appear in the root `exports/` folder. Existing destinations are never overwritten. JSON is an array; CSV always includes a header, including when there are no matches. Exports stream through a database cursor and publish a completed temporary file atomically.
+Optional `--competition=virtual-bundesliga` or `--competition=virtual-euro` isolates that competition. `--competition=virtual-football` also includes legacy untagged English records. Without a filter all competitions are exported, ordered by competition and season. Legacy rows are labelled `virtual-football` in the exported file; this does not rewrite MongoDB. Files appear in the root `exports/` folder. Existing destinations are never overwritten. JSON is an array; CSV always includes a header, including when there are no matches. Exports stream through a database cursor and publish a completed temporary file atomically.
 
-Columns: `source, competition_id, season_id, season_sequence, match_id, matchday, kickoff, home_team_id, home_team, away_team_id, away_team, odds_captured_at, home_odds, draw_odds, away_odds, home_score, away_score, status, result`.
+Columns: `source, competition_id, season_id, season_sequence, match_id, provider_match_id, provider_tournament_id, collected_at, matchday, kickoff, home_team_id, home_team, away_team_id, away_team, odds_captured_at, home_odds, draw_odds, away_odds, home_score, away_score, status, result`.
 
 Results use H/D/A. Legacy 1/x/2 results and singular `_odd` fields are converted during export. Export match IDs use the MongoDB record ID, because the legacy `match_id` can represent a team pairing rather than a unique fixture. Legacy season order is not inferred from source IDs: supply sequence metadata before chronological strategy testing.
 
@@ -101,3 +101,85 @@ docker compose -f engine/compose.yaml run --rm -T --no-deps --entrypoint node co
 ```
 
 The root `.env` was removed from tracking. If it held real credentials, rotate them; removing the current file does not erase Git history. Historical collections are preserved; there are no destructive migrations.
+
+
+## English, Bundesliga and Euro collection
+
+Use one MongoDB collection with separate `competition_id` values. The existing
+English value remains `virtual-football`; no reset, migration or reimport is needed.
+Run collectors sequentially because repairs share a database lock.
+
+The provider samples supplied for Bundesliga season `3148613` and Euro season
+`3148615` returned eight fixtures on days 1 and 30 and none on day 31. All three
+configured formats are currently 30 × 8 = 240. These are virtual competitions,
+not the real-world Bundesliga/European tournament schedules. Profiles live in
+`trade_crawler/config/competitions.json` and are shared by Node and PHP.
+
+| Competition ID | Feed tournament ID |
+| --- | --- |
+| virtual-football | vf:tournament:31867 |
+| virtual-bundesliga | vf:tournament:34616 |
+| virtual-euro | vf:tournament:14149 |
+
+After updating the code, rebuild the images once:
+
+```sh
+docker compose -f engine/compose.yaml build
+cd discovery
+npm ci
+npm run collect -- 85 --competition=virtual-football
+npm run collect -- 85 --competition=virtual-bundesliga
+npm run collect -- 85 --competition=virtual-euro
+```
+
+Each command prompts for that competition's current archive URL or season ID.
+The supplied German and Euro examples were:
+
+- `https://st-cdn001.akamaized.net/bet9javirtuals/en/1/season/3148613/archive`
+- `https://st-cdn001.akamaized.net/bet9javirtuals/en/1/season/3148615/archive`
+
+URLs have the same path structure, so they do not identify the league by themselves.
+Select the correct competition explicitly. Every fetched event must match its
+configured tournament ID; a mismatch stops collection before API rows are written.
+Normal completion/deduplication checks still happen without refetching stored data.
+Discovery retains the existing archive UI selectors; each league's live browser
+pagination should be verified when first collecting it.
+
+Resume only a particular league's saved work:
+
+```sh
+npm run collect -- --resume --competition=virtual-bundesliga
+```
+
+Docker-only equivalent (from repository root):
+
+```sh
+docker compose -f engine/compose.yaml run --rm collector 85 --competition=virtual-euro
+```
+
+Progress is stored in `raw/collection-progress-<competition>.json`; new manifests
+and raw response filenames also include the competition. Old English manifests
+remain readable and are not imported into the other leagues. `COMPETITION_ID`
+continues to work as an environment default; the CLI option takes precedence.
+
+Exports from the repository root (choose unused output filenames):
+
+```sh
+docker compose -f engine/compose.yaml run --rm app matches:export /exports/english.json --format=json --competition=virtual-football
+docker compose -f engine/compose.yaml run --rm app matches:export /exports/bundesliga.json --format=json --competition=virtual-bundesliga
+docker compose -f engine/compose.yaml run --rm app matches:export /exports/euro.json --format=json --competition=virtual-euro
+docker compose -f engine/compose.yaml run --rm app matches:export /exports/all-leagues.json --format=json
+```
+
+Use separate league exports with existing single-league analysis scripts. Those
+locally created scripts are not tracked in this repository and have not been
+rewritten: do not feed an all-league file into them until they partition by
+`competition_id` before computing standings or historical features.
+
+New exports retain `collected_at` and provider match/tournament IDs. Existing
+collection already writes `collected_at` on new records. This is fetch time,
+not kickoff; the response-level `doc[].timestamp` is not treated as event time.
+Old records without timestamps stay unknown. Stored raw JSON responses remain
+available for future backfilling if genuine event-time metadata is identified.
+Custom PHP competition IDs require explicit `--matchdays` and
+`--matches-per-matchday` rather than silently inheriting the English format.

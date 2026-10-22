@@ -9,7 +9,7 @@ export function archiveUrl(value) {
     const url = new URL(input);
     if (url.protocol !== 'https:' || url.hostname !== 'st-cdn001.akamaized.net'
         || !url.pathname.startsWith('/bet9javirtuals/en/1/season/')) {
-      throw new Error('Enter a numeric source season ID or the Bet9ja English League archive URL.');
+      throw new Error('Enter a numeric source season ID or the Bet9ja virtual football archive URL.');
     }
     id = seasonId(input);
   }

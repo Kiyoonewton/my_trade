@@ -5,7 +5,7 @@ use RuntimeException;
 class MatchExport
 {
     public const FIELDS = ['source', 'competition_id', 'season_id', 'season_sequence',
-        'match_id', 'matchday', 'kickoff', 'home_team_id', 'home_team',
+        'match_id', 'provider_match_id', 'provider_tournament_id', 'collected_at', 'matchday', 'kickoff', 'home_team_id', 'home_team',
         'away_team_id', 'away_team', 'odds_captured_at', 'home_odds', 'draw_odds',
         'away_odds', 'home_score', 'away_score', 'status', 'result'];
 
@@ -14,6 +14,7 @@ class MatchExport
         $result = $record['result'] ?? null;
         $result = ['1'=>'H', 'x'=>'D', '2'=>'A', 'H'=>'H', 'D'=>'D', 'A'=>'A'][(string) $result] ?? null;
         $row = array_intersect_key($record, array_flip(self::FIELDS));
+        $row['competition_id'] = $record['competition_id'] ?? 'virtual-football';
         $row['match_id'] = (string) ($record['_id'] ?? $record['match_id'] ?? '');
         $row['matchday'] = $record['matchday_id'] ?? $record['matchday'] ?? null;
         foreach (['home', 'away'] as $side) {
