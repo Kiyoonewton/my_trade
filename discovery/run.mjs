@@ -5,22 +5,27 @@ import {discover, defaults} from './discover.mjs';
 import {collectBatch} from './seasons.mjs';
 import {promptForArchive} from './configuration.mjs';
 import {runtime} from './runtime.mjs';
+import {completedSnapshot, synchronizeCompleted} from './database.mjs';
 import {collectionOptions} from './leagues.mjs';
-import {loadProgress, saveJson, addDiscovered, pendingOldestFirst, retryNetwork} from './progress.mjs';
+import {loadProgress, saveJson, addDiscovered, pendingSeasons, retryNetwork} from './progress.mjs';
 import {join} from 'node:path';
 
 let options;
 try { options = collectionOptions(process.argv.slice(2)); }
 catch (error) { console.error(error.message); process.exit(1); }
-const {competition, count, resume, profile} = options;
+const {competition, count, resume, newestFirst, profile} = options;
 const config = runtime(process.env.MY_TRADE_LOCAL === '1', {...process.env, COMPETITION_ID:competition});
 let manifest, manifestPath;
 try {
   await mkdir(config.rawDirectory, {recursive:true});
   console.log(`League: ${profile.name} (${competition}); ${profile.matchdays} matchdays × ${profile.matches_per_matchday} matches.`);
   const {path, progress} = await loadProgress(config.rawDirectory, competition);
+  console.log('Checking MongoDB for fully collected seasons...');
+  const completed = synchronizeCompleted(progress, await completedSnapshot(config.completedSeasons()));
+  await saveJson(path, progress);
+  console.log(`MongoDB: ${completed.size} complete seasons; discovery stops at the first completed archive row.`);
   manifestPath = join(config.rawDirectory, `seasons-${Date.now()}-${competition}.json`);
-  manifest = {competition, season_format:profile, discovered_at:new Date().toISOString(), order:'oldest-to-newest',
+  manifest = {competition, season_format:profile, discovered_at:new Date().toISOString(), order:newestFirst ? 'newest-to-oldest' : 'oldest-to-newest',
     discovery_ids:[], season_ids:[], processed:[]};
   if (!resume) {
     const endpoint = await promptForArchive();
@@ -34,6 +39,7 @@ try {
       console.log(`Discovering up to ${count} seasons before API collection...`);
       // The archive lists its own current seasons even when opened from an older URL.
       await discover(page, {endpoint, count, selectors,
+        shouldStop:id => completed.has(id),
         onUnresolved:async row => { (manifest.unresolved_rows ??= []).push(row); },
         onSeason:async id => {
           if (!manifest.discovery_ids.includes(id)) manifest.discovery_ids.push(id);
@@ -53,9 +59,9 @@ try {
     console.warn(`Discovery warning: ${manifest.unresolved_rows.length} rows could not be resolved; see manifest. Collecting saved IDs only.`);
     process.exitCode = 2;
   }
-  manifest.season_ids = pendingOldestFirst(progress);
+  manifest.season_ids = pendingSeasons(progress, newestFirst);
   await saveJson(manifestPath, manifest);
-  console.log(`Saved plan: ${manifest.season_ids.length} pending seasons, oldest to newest. Browser is no longer needed.`);
+  console.log(`Saved plan: ${manifest.season_ids.length} pending seasons, ${newestFirst ? 'newest to oldest' : 'oldest to newest'}. Browser is no longer needed.`);
   const result = await collectBatch(manifest.season_ids, async id => {
     const status = await retryNetwork(async () => {
       const job = config.collection(id);
@@ -77,7 +83,7 @@ try {
   if (result.incomplete || result.networkFailures) process.exitCode = 2;
 } catch (error) {
   console.error(error.message);
-  console.error(`Retry this league without Chrome: npm run collect -- --resume --competition=${competition}`);
+  console.error(`Retry this league without Chrome: npm run collect -- --resume --competition=${competition}${newestFirst ? ' --newest-first' : ''}`);
   if (manifest) manifest.error = error.message;
   process.exitCode = 1;
 } finally {

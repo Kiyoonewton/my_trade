@@ -15,6 +15,7 @@ jobs:
       - name: Database export integration
         run: |
           docker compose -f engine/compose.yaml up -d --wait mongodb
+          python3 -c "import socket; socket.create_connection(('127.0.0.1', 27017), timeout=5).close()"
           docker compose -f engine/compose.yaml run --rm --entrypoint php app tests/season_collection.php
           docker compose -f engine/compose.yaml exec -T mongodb mongosh my_trade --quiet --eval 'db.win_or_draws.insertOne({season_id:"test",matchday_id:1,home:"A",away:"B",home_odd:2.1,draw_odd:3.2,away_odd:3.8,result:"x"})'
           docker compose -f engine/compose.yaml run --rm app matches:export /exports/test.json --format=json --season=test

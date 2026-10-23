@@ -39,9 +39,14 @@ try {
     verify($run() === 0, 'Initial season must complete: '.Artisan::output());
     verify($matches->countDocuments(['season_id'=>$season]) === 240, 'Exactly 240 fixtures');
     verify(count($requests) === 30, 'Fetch 30 matchdays');
+    $snapshotArgs = ['--competition'=>$competition, '--matchdays'=>30, '--matches-per-matchday'=>8];
+    verify(Artisan::call('matches:completed', $snapshotArgs) === 0, 'Completion snapshot succeeds');
+    verify(in_array($season, json_decode(Artisan::output(), true)['season_ids'], true), 'Snapshot contains complete season');
     $requests = []; $fake();
     verify($run() === 0 && count($requests) === 0, 'Complete season skipped without requests');
     $matches->deleteOne(['season_id'=>$season,'matchday_id'=>7]);
+    verify(Artisan::call('matches:completed', $snapshotArgs) === 0, 'Incomplete snapshot succeeds');
+    verify(!in_array($season, json_decode(Artisan::output(), true)['season_ids'], true), 'Incomplete seasons are not discovery boundaries');
     $requests = []; $fake(7);
     verify($run() === 3, 'Incomplete API response must report incomplete');
     verify(str_contains(Artisan::output(),'INCOMPLETE'), 'Terminal reports incomplete');

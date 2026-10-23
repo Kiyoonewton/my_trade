@@ -19,10 +19,11 @@ async function clickStable(page, handle, timeout) {
 export async function discover(page, {endpoint, count, selectors = defaults, timeout = 60000, onSeason = () => {}, shouldStop = () => false, initialIds = [], onUnresolved = () => {}, signal}) {
   const waitForArchive = async () => {
     if (selectors.rows === defaults.rows) {
+      // Bundesliga has no Champion heading, even when archive rows are ready.
       await page.waitForFunction(() => {
         const headings = [...document.querySelectorAll(':is(main, [role="main"]) th')].map(el => el.textContent.trim());
         return document.body.innerText.includes('Access Denied')
-          || (headings.includes('Season') && headings.includes('Champion'));
+          || headings.includes('Season');
       }, {timeout});
       if (await page.evaluate(() => document.body.innerText.includes('Access Denied'))) {
         throw new Error('Archive server returned Access Denied.');

@@ -5,14 +5,14 @@ use MongoDB\Collection;
 class SeasonStore
 {
     private Collection $matches;
-    public function __construct()
+    public function __construct(bool $ensureIndexes = true)
     {
         $client = new Client(config('database.connections.mongodb.dsn'));
         $this->matches = $client->selectCollection(config('database.connections.mongodb.database'), 'win_or_draws');
-        $this->matches->createIndex(['fixture_key'=>1], [
+        if ($ensureIndexes) { $this->matches->createIndex(['fixture_key'=>1], [
             'unique'=>true, 'partialFilterExpression'=>['fixture_key'=>['$type'=>'string']],
             'name'=>'unique_fixture_key',
-        ]);
+        ]); }
     }
     public function filter(string $season, string $competition): array
     {
@@ -29,6 +29,22 @@ class SeasonStore
         return $this->matches->find($this->filter($season, $competition),
             ['typeMap'=>['root'=>'array','document'=>'array','array'=>'array']])->toArray();
     }
+    // Read-only: full integrity, not merely a matching record count.
+    public function completedSeasons(string $competition, int $days, int $matches): array
+    {
+        $filter = $this->filter('', $competition);
+        unset($filter['season_id']);
+        $ids = array_unique(array_map('strval', $this->matches->distinct('season_id', $filter)));
+        $complete = [];
+        $integrity = new SeasonIntegrity;
+        foreach ($ids as $id) {
+            if ($integrity->completeSeason($this->rows($id, $competition), $days, $matches)) {
+                $complete[] = $id;
+            }
+        }
+        return $complete;
+    }
+
     public function key(array $row, string $season, string $competition): string
     {
         return hash('sha256', json_encode([$competition, $season,

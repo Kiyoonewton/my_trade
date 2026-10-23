@@ -103,3 +103,27 @@ test('delayed SPA archive return and smooth scrolling resolve every row', {skip:
   assert.deepEqual(ids,['10006','10005','10004','10003','10002','10001']);assert.deepEqual(unresolved,[]);
  } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}
 });
+
+
+test('Bundesliga archive is ready without a Champion column', {skip:!process.env.CHROMIUM_PATH}, async () => {
+  const html = `<!doctype html><div role="main"><table>
+    <thead><tr><th>Season</th><th></th><th></th></tr></thead><tbody>
+    <tr class="cursor-pointer"><td><a href="/season/3148878">Virtual Football Bundesliga 24446</a></td><td></td></tr>
+    <tr class="cursor-pointer"><td><a href="/season/3148850">Virtual Football Bundesliga 24445</a></td><td></td></tr>
+    </tbody></table></div>`;
+  const server = createServer((req, res) => { res.setHeader('Content-Type','text/html'); res.end(html); });
+  await new Promise(resolve => server.listen(0,'0.0.0.0',resolve));
+  let browser;
+  try {
+    browser = await puppeteer.launch({executablePath:process.env.CHROMIUM_PATH,args:['--no-sandbox'],headless:true});
+    const page = await browser.newPage();
+    const found = await discover(page, {
+      endpoint:`http://127.0.0.1:${server.address().port}/archive`, count:85, timeout:2000,
+      shouldStop:id => id === '3148850',
+    });
+    assert.deepEqual(found, ['3148878']);
+  } finally {
+    if (browser) await browser.close();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
