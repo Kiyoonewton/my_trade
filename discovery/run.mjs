@@ -5,6 +5,7 @@ import {discover, defaults} from './discover.mjs';
 import {collectBatch} from './seasons.mjs';
 import {promptForArchive} from './configuration.mjs';
 import {runtime} from './runtime.mjs';
+import {completedSnapshot, synchronizeCompleted} from './database.mjs';
 import {collectionOptions} from './leagues.mjs';
 import {loadProgress, saveJson, addDiscovered, pendingSeasons, retryNetwork} from './progress.mjs';
 import {join} from 'node:path';
@@ -19,6 +20,10 @@ try {
   await mkdir(config.rawDirectory, {recursive:true});
   console.log(`League: ${profile.name} (${competition}); ${profile.matchdays} matchdays × ${profile.matches_per_matchday} matches.`);
   const {path, progress} = await loadProgress(config.rawDirectory, competition);
+  console.log('Checking MongoDB for fully collected seasons...');
+  const completed = synchronizeCompleted(progress, await completedSnapshot(config.completedSeasons()));
+  await saveJson(path, progress);
+  console.log(`MongoDB: ${completed.size} complete seasons; discovery stops at the first completed archive row.`);
   manifestPath = join(config.rawDirectory, `seasons-${Date.now()}-${competition}.json`);
   manifest = {competition, season_format:profile, discovered_at:new Date().toISOString(), order:newestFirst ? 'newest-to-oldest' : 'oldest-to-newest',
     discovery_ids:[], season_ids:[], processed:[]};
@@ -34,6 +39,7 @@ try {
       console.log(`Discovering up to ${count} seasons before API collection...`);
       // The archive lists its own current seasons even when opened from an older URL.
       await discover(page, {endpoint, count, selectors,
+        shouldStop:id => completed.has(id),
         onUnresolved:async row => { (manifest.unresolved_rows ??= []).push(row); },
         onSeason:async id => {
           if (!manifest.discovery_ids.includes(id)) manifest.discovery_ids.push(id);

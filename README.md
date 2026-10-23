@@ -26,7 +26,7 @@ npm ci
 npm run collect -- 85
 ```
 
-Enter the current season ID or full archive URL at the prompt. Puppeteer opens visible Chrome, scans archive rows and clicks Show more to discover up to 85 unique season IDs. It saves IDs from visible rows before loading more, and scans the requested archive window even across completed seasons. Only new or unfinished seasons enter the API queue, so a later run may collect only 3 or 10 new seasons. Do not navigate or close the managed window during discovery. **Discovery finishes and saves the plan before API collection starts.** The browser then closes; API collection continues independently, oldest to newest according to archive order.
+Enter the current season ID or full archive URL at the prompt. Puppeteer opens visible Chrome, scans archive rows and clicks Show more to discover up to 85 unique season IDs. It saves IDs from visible rows before loading more and stops at the first fully collected season verified in MongoDB. Only new or unfinished seasons enter the API queue, so a later run may collect only 3 or 10 new seasons. Do not navigate or close the managed window during discovery. **Discovery finishes and saves the plan before API collection starts.** The browser then closes; API collection continues independently, oldest to newest according to archive order.
 
 This Mac mode uses the standard Google Chrome application path; set `CHROMIUM_PATH` if Chrome is installed elsewhere. If discovery fails or the server denies access, saved progress remains available. Resume saved pending seasons without opening Chrome or entering a current season:
 
@@ -34,7 +34,7 @@ This Mac mode uses the standard Google Chrome application path; set `CHROMIUM_PA
 npm run collect -- --resume
 ```
 
-The host Node runner invokes `docker compose run --rm -T app matches:collect ...` for each pending season. Do not run separate collectors simultaneously. Keep `raw/` and the MongoDB volume together: the per-competition `raw/collection-progress-*.json` records completed seasons and pending work. Successful seasons are not requested again by the batch runner. Existing `raw/seasons-*.json` manifests are imported automatically, including their completed seasons, network failures and unprocessed IDs. If you intentionally replace/restore the database, move the progress file and old manifests aside to let MongoDB verify seasons again.
+The host Node runner invokes `docker compose run --rm -T app matches:collect ...` for each pending season. Do not run separate collectors simultaneously. Keep `raw/` and the MongoDB volume together: the per-competition `raw/collection-progress-*.json` records completed seasons and pending work. A read-only database snapshot validates stored seasons at startup. Successful seasons are not requested again by the batch runner; stale completion flags are reset if their stored season is missing or incomplete. Existing `raw/seasons-*.json` manifests are imported automatically, including their completed seasons, network failures and unprocessed IDs. If you intentionally replace/restore the database, move the progress file and old manifests aside to let MongoDB verify seasons again.
 
 ## Discover and collect 85 seasons
 
@@ -47,7 +47,7 @@ docker compose -f engine/compose.yaml run --rm collector 85
 
 Every run prompts: `Current season ID or archive URL:`. Enter the numeric source ID (for example `3147738`) or the full selected league archive URL. It constructs `https://st-cdn001.akamaized.net/bet9javirtuals/en/1/season/<ID>/archive`. No `SEASON_ENDPOINT` setting is needed; any old value is ignored. Do not use `-T` for the collector command.
 
-The supplied URL opens the archive. Its table determines the season IDs and their order; an older URL can still display newer seasons. Puppeteer scans **newest to oldest**, clicks Show more as needed until the requested number of unique IDs is found or the archive ends. Completed IDs count toward that discovery limit, but are excluded from API collection. `85` is a maximum, not a required count; discovery can return fewer seasons. API collection reverses archive order to run **oldest to newest**, including any previously pending failures. Numeric source IDs are never used to infer chronology. The source ID comes from row navigation, not the displayed league number.
+The supplied URL opens the archive. Its table determines the season IDs and their order; an older URL can still display newer seasons. Puppeteer scans **newest to oldest**, clicks Show more as needed until the requested number of unique IDs is found or the archive ends. The first fully collected season is the discovery boundary and is excluded from the new discovery window. `85` is a maximum, not a required count; discovery can return fewer seasons. API collection reverses archive order to run **oldest to newest**, including any previously pending failures. Numeric source IDs are never used to infer chronology. The source ID comes from row navigation, not the displayed league number.
 
 The plan is saved before collection in `raw/seasons-*.json`. The durable progress file is updated atomically after every season attempt; only successful validation against the selected competition format marks a season complete. Interrupted, network-failed and incomplete seasons remain pending. `--resume` uses this saved queue without Chrome. A stalled Show more request reports unfinished discovery instead of silently claiming the archive has ended. Pagination targets the observed Show more container and verifies row growth. A pagination failure preserves the IDs already discovered for `--resume`. Same-URL season selections are supported. Unresolved rows are reported in the manifest and skipped so other seasons can still be discovered; the run reports a warning rather than claiming full discovery.
 
@@ -225,3 +225,26 @@ Only localhost is bound. Containers continue using `mongodb://mongodb:27017`;
 keep `DB_DSN` unchanged. Recreating the service retains `engine_mongo_data`.
 If host port 27017 is occupied, change only the host port in the mapping
 (for example `127.0.0.1:27018:27017`) and use that port in your client URI.
+
+
+### Stop discovery when reaching stored history
+
+Before discovery or resume, the collector runs `matches:completed` once to read
+and validate the selected competition's stored seasons. Archive scanning stops
+at the first complete season; an existing but incomplete season is still
+eligible for repair. No further rows are opened or Show more buttons clicked
+past that boundary. Existing pending failures remain in the saved API queue.
+`85` remains a maximum, so a run following one newly finished season can discover
+only that season before stopping. This uses MongoDB even when a local progress
+file is missing. Checking completed seasons does not fetch the provider feed.
+
+Rebuild the app image after updating because the snapshot is a new PHP command:
+
+```sh
+docker compose -p engine -f engine/compose.yaml build app
+```
+
+If MongoDB cannot be checked or an old image lacks `matches:completed`, discovery
+stops with a setup error instead of assuming the database is empty. The new
+snapshot uses full existing season-integrity checks and never repairs/deletes
+records or creates indexes. It does not infer archive order from numeric IDs.
