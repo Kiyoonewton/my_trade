@@ -12,7 +12,7 @@ docker compose -f engine/compose.yaml build
 docker compose -f engine/compose.yaml up -d mongodb
 ```
 
-No database ports are published. The default named volume starts a **new empty database**. Existing `db/mongodb` data is not deleted or automatically imported. Back up the old database with `mongodump` before switching, then restore with `mongorestore`, or set `DB_DSN` to a reachable existing MongoDB server. Never run `down -v` unless you intend to remove the new volume.
+MongoDB is published on `127.0.0.1:27017` for local database clients. The default named volume starts a **new empty database**. Existing `db/mongodb` data is not deleted or automatically imported. Back up the old database with `mongodump` before switching, then restore with `mongorestore`, or set `DB_DSN` to a reachable existing MongoDB server. Never run `down -v` unless you intend to remove the new volume.
 
 ## Visible Chrome on your Mac
 
@@ -205,3 +205,23 @@ failed seasons remain retryable. Without this option collection remains oldest
 first. For the reported Euro examples, a live check found empty 1X2 outcome lists
 in seasons 3146383, 3146415 and 3146442, while 3148615 and 3148793 supplied odds.
 This is a feed-availability observation, not a permanent expiry classification.
+
+
+### Connect to MongoDB from your Mac
+
+Apply the port mapping using the existing Compose project and volume:
+
+```sh
+docker compose -p engine -f engine/compose.yaml up -d --wait mongodb
+```
+
+MongoDB Compass / your database client's connection URI:
+
+```text
+mongodb://127.0.0.1:27017/my_trade
+```
+
+Only localhost is bound. Containers continue using `mongodb://mongodb:27017`;
+keep `DB_DSN` unchanged. Recreating the service retains `engine_mongo_data`.
+If host port 27017 is occupied, change only the host port in the mapping
+(for example `127.0.0.1:27018:27017`) and use that port in your client URI.
