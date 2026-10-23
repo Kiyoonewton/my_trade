@@ -20,6 +20,11 @@ export function pendingOldestFirst(progress) {
   return [...progress.order].reverse().filter(id => progress.seasons[id]?.status !== 'complete');
 }
 
+export function pendingSeasons(progress, newestFirst = false) {
+  const pending = pendingOldestFirst(progress);
+  return newestFirst ? pending.reverse() : pending;
+}
+
 export async function loadProgress(directory, competition) {
   const path = join(directory, `collection-progress-${encodeURIComponent(competition)}.json`);
   let progress;

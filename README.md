@@ -183,3 +183,25 @@ Old records without timestamps stay unknown. Stored raw JSON responses remain
 available for future backfilling if genuine event-time metadata is identified.
 Custom PHP competition IDs require explicit `--matchdays` and
 `--matches-per-matchday` rather than silently inheriting the English format.
+
+
+### Older seasons with empty odds
+
+An archive row can remain available after its feed no longer supplies 1X2
+outcomes. These records cannot be imported with fabricated odds. If collecting
+oldest first stops at three unavailable seasons before reaching newer history,
+resume the same saved league queue newest first:
+
+```sh
+cd discovery
+npm run collect -- --resume --competition=virtual-euro --newest-first
+```
+
+`--newest-first` also works with discovery and Docker collection. It reverses the
+pending queue using saved archive order, never numeric IDs, and leaves checkpoints
+and existing matches intact. Completed seasons remain excluded. The existing
+three-consecutive-incomplete stop and network handling stay unchanged. Earlier
+failed seasons remain retryable. Without this option collection remains oldest
+first. For the reported Euro examples, a live check found empty 1X2 outcome lists
+in seasons 3146383, 3146415 and 3146442, while 3148615 and 3148793 supplied odds.
+This is a feed-availability observation, not a permanent expiry classification.

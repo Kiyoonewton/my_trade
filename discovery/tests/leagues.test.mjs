@@ -40,3 +40,16 @@ test('new league-labelled manifests and checkpoints remain isolated', async () =
     assert.equal(euro.progress.seasons['33333'].status, 'complete');
   } finally { await rm(directory, {recursive:true,force:true}); }
 });
+
+import {pendingSeasons} from '../progress.mjs';
+test('newest-first uses archive order and keeps pending failures retryable', () => {
+  assert.equal(collectionOptions(['--resume','--newest-first','--competition=virtual-euro'], {}).newestFirst, true);
+  assert.equal(collectionOptions([], {}).newestFirst, false);
+  const progress = {order:['90000','10000','80000'], seasons:{
+    '90000':{status:'pending'},'10000':{status:'complete'},'80000':{status:'incomplete'},
+  }};
+  assert.deepEqual(pendingSeasons(progress), ['80000','90000']);
+  assert.deepEqual(pendingSeasons(progress, true), ['90000','80000']);
+  assert.deepEqual(progress.order, ['90000','10000','80000']);
+  assert.equal(progress.seasons['80000'].status, 'incomplete');
+});
