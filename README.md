@@ -248,3 +248,8 @@ If MongoDB cannot be checked or an old image lacks `matches:completed`, discover
 stops with a setup error instead of assuming the database is empty. The new
 snapshot uses full existing season-integrity checks and never repairs/deletes
 records or creates indexes. It does not infer archive order from numeric IDs.
+
+
+Bundesliga's archive currently has a Season heading with empty winner columns.
+Discovery therefore requires the Season heading plus archive rows; it does not
+require a Champion column, which is present in the English/Euro layouts.
