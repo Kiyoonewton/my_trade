@@ -1,97 +1,36 @@
-name: kiotrad
-
-x-collector: &collector
-  profiles: [collectors]
-  build:
-    context: ..
-    dockerfile: engine/api.Dockerfile
-  env_file: .env
-  environment:
-    REDIS_LOCK_HOST: redis-locks
-  volumes:
-    - provider_evidence:/app/storage/app/private/provider-evidence
-  depends_on:
-    mongodb:
-      condition: service_healthy
-  restart: unless-stopped
-  stop_grace_period: 35s
-
 services:
-  redis:
-    image: redis:7-alpine
-    command: [redis-server, --maxmemory, "${REDIS_CACHE_MAXMEMORY:-512mb}", --maxmemory-policy, allkeys-lru, --save, "", --appendonly, "no"]
-    mem_limit: 640m
-    healthcheck:
-      test: [CMD, redis-cli, ping]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    restart: unless-stopped
-
-  redis-locks:
-    image: redis:7-alpine
-    command: [redis-server, --maxmemory, 64mb, --maxmemory-policy, noeviction, --save, "", --appendonly, "no"]
-    mem_limit: 96m
-    healthcheck:
-      test: [CMD, redis-cli, ping]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    restart: unless-stopped
-
-  dashboard-worker:
+  app:
     build:
       context: ..
-      dockerfile: engine/api.Dockerfile
+      dockerfile: engine/Dockerfile
+      target: application
     env_file: .env
-    environment:
-      REDIS_LOCK_HOST: redis-locks
     volumes:
-      - dashboard_views:/app/storage/app/private/dashboard-views
-    command: [php, artisan, 'dashboard:watch']
+      - ../exports:/exports
+      - ../raw:/raw
+      - collection_state:/state
     depends_on:
-      redis:
+      mongodb:
         condition: service_healthy
-      redis-locks:
+  collector:
+    build:
+      context: ..
+      dockerfile: engine/Dockerfile
+      target: collector
+    env_file: .env
+    shm_size: 1gb
+    stdin_open: true
+    tty: true
+    volumes:
+      - ../exports:/exports
+      - ../raw:/raw
+      - collection_state:/state
+    depends_on:
+      mongodb:
         condition: service_healthy
-    restart: unless-stopped
-    stop_grace_period: 35s
-
-  qualification-slack-worker:
-    <<: *collector
-    profiles: [slack-alerts]
-    command: [php, artisan, 'notifications:slack-watch']
-
-  qualification-email-worker:
-    <<: *collector
-    profiles: [email-alerts]
-    command: [php, artisan, 'notifications:email-watch']
-
-  notification-worker:
-    <<: *collector
-    profiles: [notifications]
-    command: [php, artisan, 'notifications:watch']
-
-  collector-english:
-    <<: *collector
-    command: [php, artisan, 'provider:watch', virtual-football]
-  collector-bundesliga:
-    <<: *collector
-    command: [php, artisan, 'provider:watch', virtual-bundesliga]
-  collector-euro:
-    <<: *collector
-    command: [php, artisan, 'provider:watch', virtual-euro]
-
-  paper-worker:
-    <<: *collector
-    profiles: [paper]
-    command: [php, artisan, 'paper:watch']
 
   mongodb:
     image: mongo:7
-    command: ["mongod", "--auth", "--bind_ip_all"]
-    ports:
-      - "127.0.0.1:${MONGO_PORT:-27018}:27017"
     volumes:
       - mongo_data:/data/db
     healthcheck:
@@ -99,54 +38,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
-    restart: unless-stopped
-
-  api:
-    build:
-      context: ..
-      dockerfile: engine/api.Dockerfile
-    env_file: .env
-    environment:
-      PHP_CLI_SERVER_WORKERS: "4"
-      REDIS_LOCK_HOST: redis-locks
-    command: [php, artisan, serve, --host=0.0.0.0, --port=8000, --no-reload]
-    volumes:
-      - dashboard_views:/app/storage/app/private/dashboard-views
-      - provider_diagnostics:/app/storage/app/private/provider-probes
-      - provider_evidence:/app/storage/app/private/provider-evidence
-    ports:
-      - "127.0.0.1:${API_PORT:-8000}:8000"
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      dashboard-worker:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1:8000/api/v1/ready') === false ? 1 : 0);"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 10s
-    restart: unless-stopped
-
-  web:
-    build:
-      context: ..
-      dockerfile: engine/web.Dockerfile
-    ports:
-      - "127.0.0.1:${WEB_PORT:-5173}:80"
-    depends_on:
-      api:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
-
 volumes:
-  dashboard_views:
   mongo_data:
-  provider_diagnostics:
-  provider_evidence:
+  collection_state:

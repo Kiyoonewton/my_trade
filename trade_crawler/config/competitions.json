@@ -1,0 +1,20 @@
+{
+  "virtual-football": {
+    "name": "English",
+    "matchdays": 30,
+    "matches_per_matchday": 8,
+    "tournament_id": "vf:tournament:31867"
+  },
+  "virtual-bundesliga": {
+    "name": "Bundesliga",
+    "matchdays": 30,
+    "matches_per_matchday": 8,
+    "tournament_id": "vf:tournament:34616"
+  },
+  "virtual-euro": {
+    "name": "Euro",
+    "matchdays": 30,
+    "matches_per_matchday": 8,
+    "tournament_id": "vf:tournament:14149"
+  }
+}
