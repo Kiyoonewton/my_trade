@@ -1,0 +1,174 @@
+name: Foundation checks
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  local-sync-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s engine/local -p 'test_*.py'
+      - run: python3 -m unittest discover -s engine/recovery -p 'test_*.py'
+      - run: python3 -m unittest discover -s engine/github -p 'test_*.py'
+      - run: python3 -m unittest discover -s engine/research -p 'test_*.py'
+      - name: Validate isolated local Compose
+        run: |
+          cp engine/local/.env.example engine/local/.env.local
+          docker compose --env-file engine/local/.env.local -f engine/local/compose.yaml config --quiet
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mongodb-2.5.5, mbstring, dom, curl
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - run: composer lint
+      - run: composer test
+      - name: Check production readiness collector PHP syntax
+        run: php -l ../../engine/recovery/production_readiness_snapshot.php
+      - name: Check backup view export PHP syntax
+        run: python3 -c 'import sys; sys.path.insert(0,"../../engine/recovery"); from production_backup_scripts import VIEWS_SCRIPT; sys.stdout.buffer.write(VIEWS_SCRIPT)' | php -l
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize authenticated disposable MongoDB
+        run: sh engine/ci-mongo.sh
+      - run: sh engine/start.sh
+      - name: Check dashboard, API proxy and real MongoDB readiness
+        run: |
+          curl --fail --retry 5 --retry-delay 2 http://localhost:5173/ | grep 'KioTrad'
+          curl --fail http://localhost:5173/api/v1/overview | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["mode"] == "foundation"; assert d["bankroll"]["balance_minor"] is None'
+          curl --fail http://localhost:8000/api/v1/ready | python3 -c 'import json,sys; assert json.load(sys.stdin)["database"] == "available"'
+      - name: Verify immutable captures against real MongoDB
+        run: docker compose --env-file engine/.env -f engine/compose.yaml exec -T -e APP_ENV=testing api php < engine/storage-smoke.php
+      - name: Verify shared paper bankroll against real MongoDB
+        run: docker compose --env-file engine/.env -f engine/compose.yaml exec -T -e APP_ENV=testing api php < engine/paper-smoke.php
+      - name: Verify observed strategy entry through paper settlement
+        run: |
+          docker compose --env-file engine/.env -f engine/compose.yaml exec -T -e APP_ENV=testing api php < engine/paper-flow-smoke.php | tee /tmp/paper-flow-smoke.log
+          grep -q '^Paper flow passed:' /tmp/paper-flow-smoke.log
+      - name: Verify disruption recovery and delayed paper settlement
+        run: docker compose --env-file engine/.env -f engine/compose.yaml exec -T -e APP_ENV=testing api php < engine/gap-smoke.php
+      - name: Verify notification outbox persistence and safe delivery
+        run: docker compose --env-file engine/.env -f engine/compose.yaml exec -T -e APP_ENV=testing api php < engine/notification-smoke.php
+      - name: Verify live alert stake evidence against isolated MongoDB
+        run: docker compose --env-file engine/.env -f engine/compose.yaml exec -T -e APP_ENV=testing api php < engine/alert-stake-smoke.php
+      - name: Verify event-order research history and Redis cache
+        run: |
+          docker compose --env-file engine/.env -f engine/compose.yaml exec -T -e APP_ENV=testing api php < engine/event-simulation-smoke.php | tee /tmp/event-smoke.log
+          grep -q '^Event simulation passed:' /tmp/event-smoke.log
+      - name: Verify worker locks survive real cache eviction
+        run: |
+          docker compose --env-file engine/.env -f engine/compose.yaml exec -T -e APP_ENV=testing api php < engine/cache-pressure-smoke.php | tee /tmp/cache-pressure.log
+          grep -q '^Cache pressure smoke passed:' /tmp/cache-pressure.log
+      - name: Verify local sync archive tools with isolated synthetic databases
+        run: python3 engine/local/archive_smoke.py
+      - name: Verify replay memory bounds and fatal worker lease cleanup
+        run: |
+          docker compose --env-file engine/.env -f engine/compose.yaml exec -T -e APP_ENV=testing api php -d memory_limit=128M < engine/replay-memory-smoke.php | tee /tmp/replay-memory.log
+          grep -q '^Replay memory smoke passed:' /tmp/replay-memory.log
+      - name: Verify raw-only local reconstruction
+        run: |
+          if docker compose --env-file engine/.env -f engine/compose.yaml exec -T api php artisan list --raw | grep -Eq '^(provider:(rebuild-raw|import-legacy-history|audit-legacy-history|audit-raw-documents)|strategy:replay-estimated-history)'; then
+            echo 'Local rebuild command must not exist in the production image'; exit 1
+          fi
+          docker build --target local -f engine/api.Dockerfile -t kiotrad-raw-rebuild-check .
+          docker run --rm -i --network kiotrad_default --env-file engine/.env -e APP_ENV=testing kiotrad-raw-rebuild-check php < engine/raw-rebuild-smoke.php | tee /tmp/raw-rebuild.log
+          grep -q '^Raw rebuild passed:' /tmp/raw-rebuild.log
+      - name: Verify local historical import and retry safety
+        run: |
+          docker run --rm -i --network kiotrad_default --env-file engine/.env -e APP_ENV=testing kiotrad-raw-rebuild-check php < engine/history-import-smoke.php | tee /tmp/history-import.log
+          grep -q '^History import passed:' /tmp/history-import.log
+      - name: Verify reviewed production history against isolated MongoDB
+        run: |
+          docker compose --env-file engine/.env -f engine/compose.yaml exec -T -e APP_ENV=testing api php -d memory_limit=512M < engine/reviewed-history-smoke.php | tee /tmp/reviewed-history.log
+          grep -q '^Reviewed production history passed:' /tmp/reviewed-history.log
+      - name: Logs on failure
+        if: failure()
+        run: docker compose --env-file engine/.env -f engine/compose.yaml logs
+      - name: Stop services
+        if: always()
+        run: docker compose --env-file engine/.env -f engine/compose.yaml down
+
+  backup-restore-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize authenticated disposable MongoDB
+        run: sh engine/ci-mongo.sh
+      - name: Verify native backup and isolated restore
+        run: python3 engine/recovery/production_backup_smoke.py
+      - name: Logs on failure
+        if: failure()
+        run: docker compose --env-file engine/.env -f engine/compose.yaml logs mongodb
+      - name: Stop disposable MongoDB
+        if: always()
+        run: docker compose --env-file engine/.env -f engine/compose.yaml down
+
+  reviewed-history-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      mongodb:
+        image: mongo:7
+        ports: ['27017:27017']
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok'"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+    env:
+      APP_ENV: testing
+      MONGODB_URI: mongodb://127.0.0.1:27017
+      MONGODB_DATABASE: kiotrad
+      REDIS_HOST: 127.0.0.1
+      REDIS_LOCK_HOST: 127.0.0.1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mongodb-2.5.5, redis, mbstring, dom, curl
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+        working-directory: apps/api
+      - name: Verify reviewed import with native isolated MongoDB and Redis
+        run: |
+          sudo ln -s "$PWD/apps/api" /app
+          php -d memory_limit=512M < engine/reviewed-history-smoke.php | tee /tmp/reviewed-history.log
+          grep -q '^Reviewed production history passed:' /tmp/reviewed-history.log

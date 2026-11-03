@@ -1,0 +1,200 @@
+import { act, cleanup, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { initialScenario, useScenario, validScenario } from "./useScenario";
+
+const settings = {
+  capital: 50000,
+  qualification: 5,
+  attempts: 4,
+  allowance: 1,
+  strategy: "all",
+};
+const response = (balance: number) => ({
+  ok: true,
+  status: 200,
+  json: async () => ({ status: "available", balance_minor: balance }),
+});
+beforeEach(() => {
+  vi.useFakeTimers();
+  localStorage.clear();
+});
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
+
+it("debounces edits and includes every setting and league in the calculation request", async () => {
+  const fetch = vi.fn().mockResolvedValue(response(5100000));
+  vi.stubGlobal("fetch", fetch);
+  const { result, rerender } = renderHook(
+    ({ capital }) => useScenario({ ...settings, capital }, "virtual-euro"),
+    { initialProps: { capital: 50000 } },
+  );
+  rerender({ capital: 60000 });
+  rerender({ capital: 70000 });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(401);
+  });
+  expect(fetch).toHaveBeenCalledTimes(1);
+  const url = new URL(fetch.mock.calls[0][0], "http://localhost");
+  expect(Object.fromEntries(url.searchParams)).toEqual({
+    capital: "70000",
+    qualification: "5",
+    attempts: "4",
+    allowance: "1",
+    strategy: "all",
+    league: "virtual-euro",
+  });
+  expect(result.current.view?.balance_minor).toBe(5100000);
+});
+
+it("does not present a late response for settings the user has already changed", async () => {
+  let resolveOld!: (v: ReturnType<typeof response>) => void;
+  const fetch = vi
+    .fn()
+    .mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveOld = resolve;
+      }),
+    )
+    .mockResolvedValue(response(6200000));
+  vi.stubGlobal("fetch", fetch);
+  const { result, rerender } = renderHook(
+    ({ qualification }) => useScenario({ ...settings, qualification }, "all"),
+    { initialProps: { qualification: 5 } },
+  );
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(401);
+  });
+  rerender({ qualification: 6 });
+  expect(result.current.view).toBeNull();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(401);
+  });
+  await act(async () => {
+    resolveOld(response(9999999));
+  });
+  expect(result.current.view?.balance_minor).toBe(6200000);
+});
+
+it("waits for prepared evidence without showing a fabricated empty financial result", async () => {
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce({
+      ok: true,
+      status: 202,
+      json: async () => ({ status: "warming", message: "Preparing evidence" }),
+    })
+    .mockResolvedValue(response(5000000));
+  vi.stubGlobal("fetch", fetch);
+  const { result } = renderHook(() => useScenario(settings, "all"));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(401);
+  });
+  expect(result.current.message).toBe("Preparing evidence");
+  expect(result.current.view).toBeNull();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(3001);
+  });
+  expect(result.current.view?.balance_minor).toBe(5000000);
+});
+
+it("rejects unsupported settings before a request and restores browser preferences", async () => {
+  const fetch = vi.fn();
+  vi.stubGlobal("fetch", fetch);
+  const { result } = renderHook(() =>
+    useScenario({ ...settings, attempts: 11 }, "all"),
+  );
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1000);
+  });
+  expect(fetch).not.toHaveBeenCalled();
+  expect(result.current.view).toBeNull();
+  expect(validScenario({ ...settings, capital: 100.5 })).toBe(false);
+  localStorage.setItem(
+    "kiotrad:simulator:v1",
+    JSON.stringify({ ...settings, allowance: 2 }),
+  );
+  expect(initialScenario(7000).allowance).toBe(2);
+});
+
+it("keeps the last matching scenario visible through a refresh failure", async () => {
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce(response(5100000))
+    .mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ status: "unavailable", message: "Worker retrying" }),
+    });
+  vi.stubGlobal("fetch", fetch);
+  const { result } = renderHook(() => useScenario(settings, "all"));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(401);
+  });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(30001);
+  });
+  expect(result.current.view?.balance_minor).toBe(5100000);
+  expect(result.current.message).toBe("Worker retrying");
+});
+
+it("shows actual preparation phase counts while cold", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: true,
+      status: 202,
+      json: async () => ({
+        status: "warming",
+        preparation: { phase: "season_monitoring", done: 20, total: 300 },
+      }),
+    }),
+  );
+  const { result } = renderHook(() => useScenario(settings, "all"));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(401);
+  });
+  expect(result.current.view).toBeNull();
+  expect(result.current.message).toBe("Checking seasons · 20/300");
+});
+
+it("restores old settings as compounding and validates new mode and stop settings", () => {
+  localStorage.setItem("kiotrad:simulator:v1", JSON.stringify(settings));
+  expect(initialScenario(7000).capital_mode).toBe("compound");
+  expect(initialScenario(7000).profit_stop).toBe(0);
+  expect(
+    validScenario({ ...settings, capital_mode: "fixed", profit_stop: 1000 }),
+  ).toBe(true);
+  expect(validScenario({ ...settings, profit_stop: -1 })).toBe(false);
+  expect(validScenario({ ...settings, profit_stop: 1.5 })).toBe(false);
+});
+
+it("includes independent strategy parameters and the versioned model in cached scenario requests", async () => {
+  const fetcher = vi.fn().mockResolvedValue(response(3000000));
+  vi.stubGlobal("fetch", fetcher);
+  const { rerender } = renderHook(
+    ({ attempts }) =>
+      useScenario(
+        {
+          ...settings,
+          staking_model: "payout_carry_v1",
+          next_win_qualification: 5,
+          next_win_attempts: attempts,
+          next_season_qualification: 6,
+          next_season_attempts: 5,
+        },
+        "all",
+      ),
+    { initialProps: { attempts: 4 } },
+  );
+  await act(() => vi.advanceTimersByTimeAsync(401));
+  const url = new URL(fetcher.mock.calls[0][0], "http://localhost");
+  expect(url.searchParams.get("next_season_attempts")).toBe("5");
+  expect(url.searchParams.get("staking_model")).toBe("payout_carry_v1");
+  rerender({ attempts: 6 });
+  await act(() => vi.advanceTimersByTimeAsync(401));
+  expect(fetcher.mock.calls.at(-1)?.[0]).toContain("next_win_attempts=6");
+  expect(validScenario({ ...settings, next_season_attempts: 11 })).toBe(false);
+});

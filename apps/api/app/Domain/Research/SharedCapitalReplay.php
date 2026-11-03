@@ -1,0 +1,183 @@
+<?php
+
+namespace App\Domain\Research;
+
+use DateTimeImmutable;
+use DomainException;
+
+final class SharedCapitalReplay
+{
+    public const VERSION = 'single-active-carry-model-2.4.0';
+
+    public function calculate(array $candidates, int $capital, string $asOf, ?int $settlementSeconds = null, int $maxAttempts = 4, int $multiplier = 1, string $capitalMode = 'compound', int $profitStop = 0, string $stakingModel = 'recovery'): array
+    {
+        if (! in_array($stakingModel, ['recovery', 'payout_carry_v1'], true)) {
+            throw new DomainException('invalid_staking_model');
+        }
+        if ($maxAttempts < 1 || $maxAttempts > 10 || ! in_array($multiplier, [1, 2], true)) {
+            throw new DomainException('invalid_scenario_settings');
+        }
+        if (! in_array($capitalMode, ['compound', 'fixed'], true) || $profitStop < 0 || $profitStop > 1000000000) {
+            throw new DomainException('invalid_capital_mode_or_profit_stop');
+        }
+        if ($capital < 1 || $capital > 1000000000) {
+            throw new DomainException('invalid_capital');
+        }
+        // Normalize offsets before sorting or comparing instants.
+        $asOf = $this->time($asOf);
+        $candidates = (new SettlementTimingModel)->apply($candidates, $asOf, $settlementSeconds);
+        $ids = [];
+        foreach ($candidates as &$candidate) {
+            if (isset($ids[$candidate['id']]) || empty($candidate['fixtures']) || count($candidate['fixtures']) > $maxAttempts) {
+                throw new DomainException('invalid_candidate');
+            }
+            $ids[$candidate['id']] = true;
+            foreach ($candidate['fixtures'] as &$fixture) {
+                $fixture['scheduled_start_at'] = $this->time($fixture['scheduled_start_at']);
+                if (isset($fixture['result_confirmed_at'])) {
+                    $fixture['result_confirmed_at'] = $this->time($fixture['result_confirmed_at']);
+                }
+            }
+            unset($fixture);
+            $candidate['entry_at'] = $candidate['fixtures'][0]['scheduled_start_at'];
+            $starts = array_column($candidate['fixtures'], 'scheduled_start_at');
+            $sorted = $starts;
+            sort($sorted);
+            if ($starts !== $sorted || count(array_unique($starts)) !== count($starts)) {
+                throw new DomainException('invalid_fixture_order');
+            }
+        }
+        unset($candidate);
+        usort($candidates, fn ($a, $b) => [$a['entry_at'], $a['id']] <=> [$b['entry_at'], $b['id']]);
+        $groups = [];
+        foreach ($candidates as $candidate) {
+            if ($candidate['entry_at'] <= $asOf) {
+                $groups[$candidate['entry_at']][] = $candidate;
+            }
+        }
+        $balance = $capital;
+        $recoveryTarget = null;
+        $active = null;
+        $rows = [];
+        $equity = [];
+        foreach ($groups as $at => $group) {
+            // Strictly before: simultaneous confirmation and entry remain a clash.
+            if ($active !== null && $active['released_at'] !== null && $active['released_at'] < $at) {
+                $this->settle($active, $balance, $recoveryTarget, $equity);
+                $active = null;
+            }
+            if ($profitStop > 0 && $balance - $capital >= $profitStop) {
+                break; // Only settled net profit can stop future entries.
+            }
+            if ($active !== null) {
+                foreach ($group as $candidate) {
+                    $rows[] = [...$candidate, 'entry_at' => $at, 'status' => 'skipped_overlap',
+                        'capital_at_entry_minor' => $balance, 'sizing_capital_at_entry_minor' => $capitalMode === 'fixed' ? $capital : $balance,
+                        'blocked_by' => $active['id'], 'observed_window' => (new RunWindowOutcome)->observe($candidate, $asOf)];
+                }
+
+                continue;
+            }
+            $eligible = [];
+            foreach ($group as $candidate) {
+                $sizingCapital = $capitalMode === 'fixed' ? $capital : $balance;
+                if ($stakingModel === 'payout_carry_v1' && $sizingCapital < 1) {
+                    $rows[] = [...$candidate, 'entry_at' => $at, 'status' => 'skipped_budget',
+                        'skip_reason' => 'insufficient_allowance', 'capital_at_entry_minor' => $balance];
+
+                    continue;
+                }
+                if ($sizingCapital > 1000000000) {
+                    $rows[] = [...$candidate, 'entry_at' => $at, 'status' => 'skipped_budget',
+                        'skip_reason' => 'calculation_range_limit', 'capital_at_entry_minor' => $balance];
+
+                    continue;
+                }
+                $odds = array_column($candidate['fixtures'], 'historical_odds_scaled');
+                if (count($odds) !== count($candidate['fixtures']) || in_array(null, $odds, true)) {
+                    $rows[] = [...$candidate, 'entry_at' => $at, 'status' => 'insufficient_fixture_history',
+                        'missing_historical_fixtures' => array_values(array_filter($candidate['fixtures'],
+                            fn ($fixture) => ! isset($fixture['historical_odds_scaled'])))];
+
+                    continue;
+                }
+                $estimate = $stakingModel === 'payout_carry_v1'
+                    ? (new PayoutCarryPlan)->calculate($candidate['fixtures'], $sizingCapital, $multiplier)
+                    : (new RunBudgetEstimate)->calculate($odds, $sizingCapital, $multiplier);
+                if ($estimate['status'] === 'missing_plan_odds') {
+                    $rows[] = [...$candidate, 'entry_at' => $at, 'status' => 'incomplete_retrospective_odds',
+                        'funded' => false, 'entry_issue' => $estimate['missing_field'], 'budget_diagnostic' => $estimate];
+
+                    continue;
+                }
+                if ($estimate['status'] !== 'estimated' || $estimate['allowance_minor'] > $balance) {
+                    $rows[] = [...$candidate, 'entry_at' => $at, 'status' => 'skipped_budget',
+                        'skip_reason' => $estimate['status'] === 'calculation_range_limit' ? 'calculation_range_limit' : 'insufficient_allowance', 'capital_at_entry_minor' => $balance,
+                        'budget_diagnostic' => $estimate];
+
+                    continue;
+                }
+                $eligible[] = [...$candidate, 'estimate' => $estimate, 'sizing_capital_at_entry_minor' => $sizingCapital];
+            }
+            usort($eligible, fn ($a, $b) => ($b['estimate']['plan']['total_minor'] <=> $a['estimate']['plan']['total_minor'])
+                ?: strcmp($a['id'], $b['id']));
+            foreach ($eligible as $candidate) {
+                if ($active !== null) {
+                    $rows[] = [...$candidate, 'entry_at' => $at, 'status' => 'skipped_simultaneous_entry',
+                        'capital_at_entry_minor' => $balance, 'sizing_capital_at_entry_minor' => $capitalMode === 'fixed' ? $capital : $balance,
+                        'blocked_by' => $active['id'], 'observed_window' => (new RunWindowOutcome)->observe($candidate, $asOf)];
+
+                    continue;
+                }
+                $settled = (new SharedRunSettlement)->calculate($candidate, $candidate['estimate'], $asOf, $candidate['attempt_limit'] ?? $maxAttempts);
+                if ($settled['total_staked_minor'] === 0 && $settled['status'] === 'awaiting_price_or_market_resolution') {
+                    $rows[] = [...$candidate, ...$settled, 'status' => 'unfunded_entry', 'funded' => false,
+                        'capital_at_entry_minor' => $balance, 'entry_issue' => $settled['pricing_issue']];
+
+                    continue;
+                }
+                $active = ['id' => $candidate['id'], 'allowance_minor' => $candidate['estimate']['allowance_minor'], ...$settled];
+                $rows[] = [...$candidate, ...$settled, 'capital_at_entry_minor' => $balance,
+                    'recovery_target_at_entry_minor' => $recoveryTarget,
+                    'selection_reason' => 'highest_estimated_total_then_stable_run_id'];
+            }
+        }
+        if ($active !== null && $active['released_at'] !== null && $active['released_at'] <= $asOf) {
+            $this->settle($active, $balance, $recoveryTarget, $equity);
+            $active = null;
+        }
+
+        $rows = (new SkippedRunCalculation)->append($rows, $asOf, $maxAttempts, $multiplier, $stakingModel, $capital, $capitalMode);
+
+        return ['policy_version' => self::VERSION, 'mode' => 'shared_capital_simulation', 'as_of' => $asOf,
+            'timing_basis' => $settlementSeconds === null ? 'recorded_result_confirmation_conservative' : 'modeled_scheduled_kickoff_offset', 'starting_capital_minor' => $capital,
+            'staking_model' => $stakingModel, 'staking_model_version' => $stakingModel === 'payout_carry_v1' ? PayoutCarryPlan::VERSION : RunBudgetEstimate::VERSION,
+            'retrospective_odds_sizing' => $stakingModel === 'payout_carry_v1',
+            'capital_mode' => $capitalMode, 'sizing_capital_minor' => $capitalMode === 'fixed' ? $capital : $balance,
+            'profit_stop_minor' => $profitStop,
+            'stop_reason' => $profitStop > 0 && $balance - $capital >= $profitStop ? 'profit_target_reached' : null,
+            'stopped_at' => $profitStop > 0 && $balance - $capital >= $profitStop ? ($equity[array_key_last($equity)]['at'] ?? null) : null,
+            'balance_minor' => $balance, 'recovery_target_minor' => $recoveryTarget,
+            'allowance_multiplier' => $multiplier, 'max_attempts' => $maxAttempts, 'reserved_allowance_minor' => $active['allowance_minor'] ?? 0,
+            'unreserved_capital_minor' => $balance - ($active['allowance_minor'] ?? 0),
+            'active_staked_minor' => $active['total_staked_minor'] ?? 0, 'active_run_id' => $active['id'] ?? null,
+            'equity' => $equity, ...(new SharedTimingPresentation)->describe($rows, $settlementSeconds)];
+    }
+
+    private function settle(array $run, int &$balance, ?int &$recoveryTarget, array &$equity): void
+    {
+        if ($run['net_minor'] < 0 && $recoveryTarget === null) {
+            $recoveryTarget = $balance;
+        }
+        $balance += $run['net_minor'];
+        if ($recoveryTarget !== null && $balance >= $recoveryTarget) {
+            $recoveryTarget = null;
+        }
+        $equity[] = ['at' => $run['released_at'], 'balance_minor' => $balance, 'run_id' => $run['id']];
+    }
+
+    private function time(string $value): string
+    {
+        return (new DateTimeImmutable($value))->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\TH:i:s.u\Z');
+    }
+}
